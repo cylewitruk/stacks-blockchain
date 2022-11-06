@@ -2771,6 +2771,71 @@ fn test_insert_entry_unbound_variables() {
 }
 
 #[test]
+fn test_entry_exists_matching_type_signatures() {
+    let cases = [
+        "map-exists kv-store (tuple (key key))",
+        "map-exists kv-store { key: 1 }",
+        "map-exists kv-store (tuple (key 1))",
+        "map-exists kv-store (compatible-tuple)"
+    ];
+
+    for case in cases.iter() {
+        let contract_src = format!(
+            "(define-map kv-store {{ key: int }} {{ value: int }})
+             (define-private (compatible-tuple) (tuple (key 1)))
+             (define-private (kv-del (key int))
+                ({}))",
+            case
+        );
+
+        mem_type_check(&contract_src).unwrap();
+    }
+}
+
+#[test]
+fn test_entry_exists_mismatching_type_signatures() {
+    let cases = [
+        "map-exists kv-store (tuple (incomptible-key key))",
+        "map-exists kv-store { key: true }",
+        "map-exists kv-store (incompatible-tuple)",
+    ];
+
+    for case in cases.iter() {
+        let contract_src = format!(
+            "(define-map kv-store {{ key: int }} {{ value: int }})
+             (define-private (incompatible-tuple) (tuple (k 1)))
+             (define-private (kv-del (key int))
+                ({}))",
+            case
+        );
+        let res = mem_type_check(&contract_src).unwrap_err();
+        assert!(match &res.err {
+            &CheckErrors::TypeError(_, _) => true,
+            _ => false,
+        });
+    }
+}
+
+#[test]
+fn test_entry_exists_unbound_variables() {
+    let cases = ["map-exists kv-store { key: unknown-value }"];
+
+    for case in cases.iter() {
+        let contract_src = format!(
+            "(define-map kv-store {{ key: int }} {{ value: int }})
+             (define-private (kv-del (key int))
+                ({}))",
+            case
+        );
+        let res = mem_type_check(&contract_src).unwrap_err();
+        assert!(match &res.err {
+            &CheckErrors::UndefinedVariable(_) => true,
+            _ => false,
+        });
+    }
+}
+
+#[test]
 fn test_delete_entry_matching_type_signatures() {
     let cases = [
         "map-delete kv-store (tuple (key key))",

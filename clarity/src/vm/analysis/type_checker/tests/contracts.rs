@@ -491,6 +491,10 @@ fn test_bad_map_usage() {
          (define-private (set-balance (account principal))
             (map-insert tokens (tuple (account \"abc\")) (tuple (balance 0))))";
 
+    let bad_exists = "(define-map tokens { account: principal } { balance: int })
+        (define-private (del-balance (account principal))
+            (map-exists tokens (tuple (balance account))))";
+
     let unhandled_option = "(define-map tokens { account: principal } { balance: int })
          (define-private (plus-balance (account principal))
            (+ (get balance (map-get? tokens (tuple (account account)))) 1))";
@@ -502,6 +506,7 @@ fn test_bad_map_usage() {
         bad_set_2,
         bad_insert_1,
         bad_insert_2,
+        bad_exists
     ];
 
     for contract in tests.iter() {
