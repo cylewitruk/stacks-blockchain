@@ -490,7 +490,6 @@ fn test_bad_map_usage() {
     let bad_insert_2 = "(define-map tokens { account: principal } { balance: int })
          (define-private (set-balance (account principal))
             (map-insert tokens (tuple (account \"abc\")) (tuple (balance 0))))";
-
     let bad_exists = "(define-map tokens { account: principal } { balance: int })
         (define-private (del-balance (account principal))
             (map-exists tokens (tuple (balance account))))";

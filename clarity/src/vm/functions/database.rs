@@ -692,6 +692,7 @@ pub fn special_entry_exists(
     env: &mut Environment,
     context: &LocalContext,
 ) -> Result<Value> {
+
     if env.global_context.is_read_only() {
         return Err(CheckErrors::WriteAttemptedInReadOnly.into());
     }
@@ -720,7 +721,7 @@ pub fn special_entry_exists(
         Err(_e) => data_types.key_type.size() as u64,
     };
 
-    runtime_cost(ClarityCostFunction::SetEntry, env, result_size)?;
+    runtime_cost(ClarityCostFunction::EntryExists, env, result_size)?;
 
     env.add_memory(result_size)?;
 

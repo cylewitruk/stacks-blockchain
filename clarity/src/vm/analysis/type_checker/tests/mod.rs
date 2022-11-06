@@ -2575,6 +2575,10 @@ fn test_non_tuple_map_kv_store() {
             (begin
                 (map-set kv-store key value)
                 value))
+        (define-private (kv-exists (key int))
+            (begin
+                (map-exists kv-store key)
+                key))
         (define-private (kv-del (key int))
             (begin
                 (map-delete kv-store key)
@@ -2598,6 +2602,10 @@ fn test_explicit_tuple_map() {
                  (map-set kv-store (tuple (key key))
                                     (tuple (value value)))
                  value))
+          (define-private (kv-exists (key int))
+            (begin
+                (map-exists kv-store (tuple (key key)))
+                key))
           (define-private (kv-del (key int))
              (begin
                  (map-delete kv-store (tuple (key key)))
@@ -2625,6 +2633,11 @@ fn test_bound_tuple_map() {
                 (map-set kv-store my-tuple
                                    (tuple (value value))))
                 value))
+         (define-private (kv-exists (key int))
+            (begin
+                (let ((my-tuple (tuple (key key))))
+                (map-exists kv-store my-tuple))
+                key))
          (define-private (kv-del (key int))
             (begin
                 (let ((my-tuple (tuple (key key))))

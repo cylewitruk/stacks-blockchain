@@ -30,6 +30,10 @@ fn assert_executes(expected: Result<Value, Error>, input: &str) {
     assert_eq!(expected.unwrap(), execute(input).unwrap().unwrap());
 }
 
+fn assert_executes_v2(expected: Result<Value, Error>, input: &str) {
+    assert_eq!(expected.unwrap(), crate::vm::execute_v2(input).unwrap().unwrap());
+}
+
 #[test]
 fn test_simple_tea_shop() {
     let test1 = "(define-map proper-tea { tea-type: int } { amount: int })
@@ -116,6 +120,57 @@ fn test_bound_tuple() {
     test_get.push_str("(list (kv-get 1))");
     let expected = Value::list_from(vec![Value::Int(0)]);
     assert_executes(expected, &test_get);
+}
+
+#[test]
+fn test_map_exists_uint_keys() {
+    let test = "
+(define-map kv-store uint uint)
+(list
+    (map-insert kv-store u1 u2)
+    (map-exists kv-store u1)
+    (map-exists kv-store u2)
+)";
+    let expected = Value::list_from(vec![
+        Value::Bool(true),
+        Value::Bool(true),
+        Value::Bool(false)
+    ]);
+    assert_executes_v2(expected, &test.to_string());
+}
+
+#[test]
+fn test_map_exists_int_keys() {
+    let test = "
+(define-map kv-store int int)
+(list
+    (map-insert kv-store 1 2)
+    (map-exists kv-store 1)
+    (map-exists kv-store 2)
+)";
+    let expected = Value::list_from(vec![
+        Value::Bool(true),
+        Value::Bool(true),
+        Value::Bool(false)
+    ]);
+    assert_executes_v2(expected, &test.to_string());
+}
+
+#[test]
+fn test_map_exists_tuple_keys() {
+    let test = "
+(define-map kv-store { key: uint } int)
+(list
+    (map-insert kv-store { key: u1 } 2)
+    (map-exists kv-store { key: u1 })
+    (map-exists kv-store { key: u2 })
+)";
+    let expected = Value::list_from(vec![
+        Value::Bool(true),
+        Value::Bool(true),
+        Value::Bool(false)
+    ]);
+    assert_executes_v2(expected, &test.to_string());
 }
 
 #[test]
