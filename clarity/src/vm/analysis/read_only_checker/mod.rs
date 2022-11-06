@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use serde_json::map::Entry;
-
 use crate::vm::analysis::types::{AnalysisPass, ContractAnalysis};
 use crate::vm::functions::define::DefineFunctionsParsed;
 use crate::vm::functions::tuples;
@@ -307,13 +305,13 @@ impl<'a, 'b> ReadOnlyChecker<'a, 'b> {
                 }
                 Ok(is_block_arg_read_only)
             }
-            FetchEntry | EntryExists => {
+            FetchEntry => {
                 check_argument_count(2, args)?;
                 self.check_each_expression_is_read_only(args)
             }
             StxTransfer | StxTransferMemo | StxBurn | SetEntry | DeleteEntry | InsertEntry
             | SetVar | MintAsset | MintToken | TransferAsset | TransferToken | BurnAsset
-            | BurnToken => {
+            | BurnToken | EntryExists => {
                 self.check_each_expression_is_read_only(args)?;
                 Ok(false)
             }
