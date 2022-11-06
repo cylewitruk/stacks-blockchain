@@ -101,6 +101,39 @@ pub fn check_special_delete_entry(
     }
 }
 
+pub fn check_special_entry_exists(
+    checker: &mut TypeChecker,
+    args: &[SymbolicExpression],
+    context: &TypingContext,
+) -> TypeResult {
+    check_arguments_at_least(2, args)?;
+
+    let map_name = args[0].match_atom().ok_or(CheckErrors::BadMapName)?;
+
+    let key_type = checker.type_check(&args[1], context)?;
+
+    let (expected_key_type, _) = checker
+        .contract_context
+        .get_map_type(map_name)
+        .ok_or(CheckErrors::NoSuchMap(map_name.to_string()))?;
+
+    runtime_cost(
+        ClarityCostFunction::AnalysisTypeLookup,
+        &mut checker.cost_track,
+        expected_key_type.type_size()?,
+    )?;
+    analysis_typecheck_cost(&mut checker.cost_track, expected_key_type, &key_type)?;
+
+    if !expected_key_type.admits_type(&key_type) {
+        return Err(CheckError::new(CheckErrors::TypeError(
+            expected_key_type.clone(),
+            key_type,
+        )));
+    } else {
+        return Ok(TypeSignature::BoolType);
+    }
+}
+
 fn check_set_or_insert_entry(
     checker: &mut TypeChecker,
     args: &[SymbolicExpression],

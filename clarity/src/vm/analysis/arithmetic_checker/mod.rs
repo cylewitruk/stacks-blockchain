@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use serde_json::map::Entry;
+
 use crate::vm::analysis::types::{AnalysisPass, ContractAnalysis};
 use crate::vm::functions::define::{DefineFunctions, DefineFunctionsParsed};
 use crate::vm::functions::tuples;
@@ -181,7 +183,7 @@ impl<'a> ArithmeticOnlyChecker<'a> {
             | FetchEntry | SetEntry | DeleteEntry | InsertEntry | SetVar | MintAsset
             | MintToken | TransferAsset | TransferToken | ContractCall | StxTransfer
             | StxTransferMemo | StxBurn | AtBlock | GetStxBalance | GetTokenSupply | BurnToken
-            | FromConsensusBuff | ToConsensusBuff | BurnAsset | StxGetAccount => {
+            | FromConsensusBuff | ToConsensusBuff | BurnAsset | StxGetAccount | EntryExists => {
                 return Err(Error::FunctionNotPermitted(function));
             }
             Append | Concat | AsMaxLen | ContractOf | PrincipalOf | ListCons | Print

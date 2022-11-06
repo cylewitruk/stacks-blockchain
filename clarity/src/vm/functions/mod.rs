@@ -173,6 +173,7 @@ define_versioned_named_enum!(NativeFunctions(ClarityVersion) {
     ToConsensusBuff("to-consensus-buff", ClarityVersion::Clarity2),
     FromConsensusBuff("from-consensus-buff", ClarityVersion::Clarity2),
     ReplaceAt("replace-at", ClarityVersion::Clarity2),
+    EntryExists("map-exists", ClarityVersion::Clarity2),
 });
 
 impl NativeFunctions {
@@ -517,6 +518,7 @@ pub fn lookup_reserved_functions(name: &str, version: &ClarityVersion) -> Option
                 SpecialFunction("from_consensus_buff", &conversions::from_consensus_buff)
             }
             ReplaceAt => SpecialFunction("replace_at", &sequences::special_replace_at),
+            EntryExists => SpecialFunction("special_entry-exists", &database::special_entry_exists),
         };
         Some(callable)
     } else {

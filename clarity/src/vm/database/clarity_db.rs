@@ -1414,6 +1414,43 @@ impl<'a> ClarityDatabase<'a> {
         })
     }
 
+    pub fn has_entry(&mut self,
+        contract_identifier: &QualifiedContractIdentifier,
+        map_name: &str,
+        key_value: &Value,
+        map_descriptor: &DataMapMetadata,
+    ) -> Result<ValueResult> {
+        if !map_descriptor.key_type.admits(key_value) {
+            return Err(CheckErrors::TypeValueError(
+                map_descriptor.key_type.clone(),
+                (*key_value).clone(),
+            )
+            .into());
+        }
+
+        let key_serialized = key_value.serialize();
+        let key_serialized_byte_len = byte_len_of_serialization(&key_serialized);
+        let key = ClarityDatabase::make_key_for_quad(
+            contract_identifier,
+            StoreType::DataMap,
+            map_name,
+            &key_serialized,
+        );
+        let stored_type = TypeSignature::new_option(map_descriptor.value_type.clone())?;
+        if self.data_map_entry_exists(&key, &stored_type)? {
+            return Ok(ValueResult {
+                value: Value::Bool(true),
+                serialized_byte_len: key_serialized_byte_len,
+            });
+        }
+        else {
+            return Ok(ValueResult {
+                value: Value::Bool(false),
+                serialized_byte_len: key_serialized_byte_len,
+            });
+        }
+    }
+
     pub fn delete_entry(
         &mut self,
         contract_identifier: &QualifiedContractIdentifier,

@@ -687,6 +687,46 @@ pub fn special_delete_entry_v205(
     result.map(|data| data.value)
 }
 
+pub fn special_entry_exists(
+    args: &[SymbolicExpression],
+    env: &mut Environment,
+    context: &LocalContext,
+) -> Result<Value> {
+    if env.global_context.is_read_only() {
+        return Err(CheckErrors::WriteAttemptedInReadOnly.into());
+    }
+
+    check_argument_count(2, args)?;
+
+    let key = eval(&args[1], env, &context)?;
+
+    let map_name = args[0].match_atom().ok_or(CheckErrors::ExpectedName)?;
+
+    let contract = &env.contract_context.contract_identifier;
+
+    let data_types = env
+        .contract_context
+        .meta_data_map
+        .get(map_name)
+        .ok_or(CheckErrors::NoSuchMap(map_name.to_string()))?;
+
+    let result = env
+        .global_context
+        .database
+        .has_entry(contract, map_name, &key, data_types);
+
+    let result_size = match &result {
+        Ok(data) => data.serialized_byte_len,
+        Err(_e) => data_types.key_type.size() as u64,
+    };
+
+    runtime_cost(ClarityCostFunction::SetEntry, env, result_size)?;
+
+    env.add_memory(result_size)?;
+
+    result.map(|data| data.value)
+}
+
 pub fn special_get_block_info(
     args: &[SymbolicExpression],
     env: &mut Environment,

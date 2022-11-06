@@ -891,6 +891,7 @@ impl TypedNativeFunction {
             FromConsensusBuff => Special(SpecialNativeFunction(
                 &conversions::check_special_from_consensus_buff,
             )),
+            EntryExists => Special(SpecialNativeFunction(&maps::check_special_entry_exists)),
         }
     }
 }

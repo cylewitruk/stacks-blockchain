@@ -131,4 +131,5 @@ define_named_enum!(ClarityCostFunction {
     NftBurn("cost_nft_burn"),
     PoisonMicroblock("poison_microblock"),
     Unimplemented("cost_unimplemented"),
+    EntryExists("cost_entry_exists"),
 });

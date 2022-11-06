@@ -1110,6 +1110,20 @@ If a value did not exist for this key in the data map, the function returns `fal
 ",
 };
 
+const ENTRY_EXISTS_API: SpecialAPI = SpecialAPI {
+    input_type: "MapName, tuple",
+    snippet: "map-exists ${1-map-name} ${2:key-tuple}",
+    output_type: "bool",
+    signature: "(map-exists map-name key-tuple)",
+    description: "The `map-exists` function tests for the existence of given key `key-tuple` in map `map-name`.  If the key exists, the function returns `true`, otherwise `false`.",
+    example: "(define-map m1 uint (string-ascii 10)
+(map-insert m1 u100 \"hello\")
+(map-insert m1 u101 \"world\")
+(map-exists m1 u100) ;; Returns true
+(map-exists m1 u404) ;; Returns false
+",
+};
+
 const TUPLE_CONS_API: SpecialAPI = SpecialAPI {
     input_type: "(key-name A), (key-name-2 B), ...",
     snippet: "tuple (${1:key-1} ${2:val-1})",
@@ -2336,6 +2350,7 @@ pub fn make_api_reference(function: &NativeFunctions) -> FunctionAPI {
         ToConsensusBuff => make_for_special(&TO_CONSENSUS_BUFF, function),
         FromConsensusBuff => make_for_special(&FROM_CONSENSUS_BUFF, function),
         ReplaceAt => make_for_special(&REPLACE_AT, function),
+        EntryExists => make_for_special(&ENTRY_EXISTS_API, function),
     }
 }
 

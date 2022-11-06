@@ -404,6 +404,15 @@
         read_length: u0
     })
 
+(define-read-only (cost_entry_exists (n uint))
+    {
+        runtime: (linear n u1 u1000),
+        write_length: u0,
+        write_count: u0,
+        read_count: u1,
+        read_length: (linear n u1 u1)
+    })
+
 (define-read-only (cost_fetch_var (n uint))
     {
         runtime: (linear n u1000 u1000),
