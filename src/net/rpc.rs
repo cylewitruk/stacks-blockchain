@@ -100,7 +100,7 @@ use clarity::vm::{
     ast::ASTRules,
     costs::{ExecutionCost, LimitedCostTracker},
     database::{
-        clarity_store::ContractCommitment, BurnStateDB, ClarityDatabase, ClaritySerializable,
+        clarity_store::ContractCommitment, BurnStateDB, ClarityDatabase, ClarityJsonSerializable,
         STXBalance, StoreType,
     },
     errors::Error as ClarityRuntimeError,

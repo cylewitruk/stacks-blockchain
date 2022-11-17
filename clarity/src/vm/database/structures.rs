@@ -23,7 +23,8 @@ use crate::vm::errors::{
 use crate::vm::types::{
     OptionalData, PrincipalData, TupleTypeSignature, TypeSignature, Value, NONE,
 };
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
+use rmp_serde::{Serializer, Deserializer};
 use stacks_common::util::hash::{hex_bytes, to_hex};
 use std::convert::TryInto;
 use std::io::Write;
@@ -34,6 +35,11 @@ pub trait ClarityJsonSerializable {
 
 pub trait ClarityJsonDeserializable<T> {
     fn deserialize(json: &str) -> T;
+}
+
+pub trait ClarityMsgPackSerializable<T> {
+    fn serialize(&self) -> Vec<u8>;
+    fn deserialize(serialized: &Vec<u8>) -> T;
 }
 
 impl ClarityJsonSerializable for String {
@@ -48,7 +54,7 @@ impl ClarityJsonDeserializable<String> for String {
     }
 }
 
-macro_rules! clarity_serializable {
+macro_rules! clarity_json_serializable {
     ($Name:ident) => {
         impl ClarityJsonSerializable for $Name {
             fn serialize(&self) -> String {
@@ -70,19 +76,34 @@ macro_rules! clarity_serializable {
     };
 }
 
+macro_rules! clarity_msgpack_serializable {
+    ($Name:ident) => {
+        impl ClarityMsgPackSerializable<$Name> for $Name {
+            fn serialize(&self) -> Vec<u8> {
+                rmp_serde::to_vec(&self).expect("Failed to serialize vm.Value")
+            }
+            fn deserialize(serialized: &Vec<u8>) -> Self {
+                rmp_serde::from_slice(&serialized).expect("Failed to deserialize vm.Value")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FungibleTokenMetadata {
     pub total_supply: Option<u128>,
 }
 
-clarity_serializable!(FungibleTokenMetadata);
+clarity_json_serializable!(FungibleTokenMetadata);
+clarity_msgpack_serializable!(FungibleTokenMetadata);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NonFungibleTokenMetadata {
     pub key_type: TypeSignature,
 }
 
-clarity_serializable!(NonFungibleTokenMetadata);
+clarity_json_serializable!(NonFungibleTokenMetadata);
+clarity_msgpack_serializable!(NonFungibleTokenMetadata);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DataMapMetadata {
@@ -90,21 +111,24 @@ pub struct DataMapMetadata {
     pub value_type: TypeSignature,
 }
 
-clarity_serializable!(DataMapMetadata);
+clarity_json_serializable!(DataMapMetadata);
+clarity_msgpack_serializable!(DataMapMetadata);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DataVariableMetadata {
     pub value_type: TypeSignature,
 }
 
-clarity_serializable!(DataVariableMetadata);
+clarity_json_serializable!(DataVariableMetadata);
+clarity_msgpack_serializable!(DataVariableMetadata);
 
 #[derive(Serialize, Deserialize)]
 pub struct ContractMetadata {
     pub contract: Contract,
 }
 
-clarity_serializable!(ContractMetadata);
+clarity_json_serializable!(ContractMetadata);
+clarity_msgpack_serializable!(ContractMetadata);
 
 #[derive(Serialize, Deserialize)]
 pub struct SimmedBlock {
@@ -115,14 +139,26 @@ pub struct SimmedBlock {
     pub vrf_seed: [u8; 32],
 }
 
-clarity_serializable!(SimmedBlock);
+clarity_json_serializable!(SimmedBlock);
+clarity_msgpack_serializable!(SimmedBlock);
 
-clarity_serializable!(PrincipalData);
-clarity_serializable!(i128);
-clarity_serializable!(u128);
-clarity_serializable!(u64);
-clarity_serializable!(Contract);
-clarity_serializable!(ContractAnalysis);
+clarity_json_serializable!(PrincipalData);
+clarity_msgpack_serializable!(PrincipalData);
+
+clarity_json_serializable!(i128);
+clarity_msgpack_serializable!(i128);
+
+clarity_json_serializable!(u128);
+clarity_msgpack_serializable!(u128);
+
+clarity_json_serializable!(u64);
+clarity_msgpack_serializable!(u64);
+
+clarity_json_serializable!(Contract);
+clarity_msgpack_serializable!(Contract);
+
+clarity_json_serializable!(ContractAnalysis);
+clarity_msgpack_serializable!(ContractAnalysis);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum STXBalance {
