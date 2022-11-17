@@ -21,7 +21,7 @@ use rusqlite::Connection;
 
 use crate::vm::analysis::AnalysisDatabase;
 use crate::vm::database::{
-    BurnStateDB, ClarityDatabase, ClarityDeserializable, ClaritySerializable, HeadersDB,
+    BurnStateDB, ClarityDatabase, ClarityJsonDeserializable, ClarityJsonSerializable, HeadersDB,
     SqliteConnection, NULL_BURN_STATE_DB, NULL_HEADER_DB,
 };
 use crate::vm::errors::{
@@ -182,13 +182,13 @@ pub struct ContractCommitment {
     pub block_height: u32,
 }
 
-impl ClaritySerializable for ContractCommitment {
+impl ClarityJsonSerializable for ContractCommitment {
     fn serialize(&self) -> String {
         format!("{}{}", self.hash, to_hex(&self.block_height.to_be_bytes()))
     }
 }
 
-impl ClarityDeserializable<ContractCommitment> for ContractCommitment {
+impl ClarityJsonDeserializable<ContractCommitment> for ContractCommitment {
     fn deserialize(input: &str) -> ContractCommitment {
         assert_eq!(input.len(), 72);
         let hash = Sha512Trunc256Sum::from_hex(&input[0..64]).expect("Hex decode fail.");

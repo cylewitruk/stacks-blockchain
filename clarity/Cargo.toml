@@ -18,6 +18,8 @@ name = "clarity"
 path = "./src/libclarity.rs"
 
 [dependencies]
+rmp = "0.8.11"
+rmp-serde = "1.1.1"
 rand = "0.7.3"
 rand_chacha = "=0.2.2"
 serde = "1"
@@ -30,6 +32,11 @@ slog = { version = "2.5.2", features = [ "max_level_trace" ] }
 stacks_common = { package = "stacks-common", path = "../stacks-common/." }
 rstest = "0.11.0"
 rstest_reuse = "0.1.3"
+
+[dependencies.rocksdb]
+version = "0.19.0"
+default-features = false
+features = ["lz4", "zstd", "multi-threaded-cf"]
 
 [dependencies.serde_json]
 version = "1.0"

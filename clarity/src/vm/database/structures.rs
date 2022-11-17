@@ -28,21 +28,21 @@ use stacks_common::util::hash::{hex_bytes, to_hex};
 use std::convert::TryInto;
 use std::io::Write;
 
-pub trait ClaritySerializable {
+pub trait ClarityJsonSerializable {
     fn serialize(&self) -> String;
 }
 
-pub trait ClarityDeserializable<T> {
+pub trait ClarityJsonDeserializable<T> {
     fn deserialize(json: &str) -> T;
 }
 
-impl ClaritySerializable for String {
+impl ClarityJsonSerializable for String {
     fn serialize(&self) -> String {
         self.into()
     }
 }
 
-impl ClarityDeserializable<String> for String {
+impl ClarityJsonDeserializable<String> for String {
     fn deserialize(serialized: &str) -> String {
         serialized.into()
     }
@@ -50,12 +50,12 @@ impl ClarityDeserializable<String> for String {
 
 macro_rules! clarity_serializable {
     ($Name:ident) => {
-        impl ClaritySerializable for $Name {
+        impl ClarityJsonSerializable for $Name {
             fn serialize(&self) -> String {
                 serde_json::to_string(self).expect("Failed to serialize vm.Value")
             }
         }
-        impl ClarityDeserializable<$Name> for $Name {
+        impl ClarityJsonDeserializable<$Name> for $Name {
             fn deserialize(json: &str) -> Self {
                 let mut deserializer = serde_json::Deserializer::from_str(&json);
                 // serde's default 128 depth limit can be exhausted
@@ -152,7 +152,7 @@ pub struct STXBalanceSnapshot<'db, 'conn> {
 
 type Result<T> = std::result::Result<T, Error>;
 
-impl ClaritySerializable for STXBalance {
+impl ClarityJsonSerializable for STXBalance {
     fn serialize(&self) -> String {
         let mut buffer = Vec::new();
         match self {
@@ -205,7 +205,7 @@ impl ClaritySerializable for STXBalance {
     }
 }
 
-impl ClarityDeserializable<STXBalance> for STXBalance {
+impl ClarityJsonDeserializable<STXBalance> for STXBalance {
     fn deserialize(input: &str) -> Self {
         let bytes = hex_bytes(&input).expect("STXBalance deserialization: failed decoding bytes.");
         if bytes.len() == STXBalance::unlocked_and_v1_size {

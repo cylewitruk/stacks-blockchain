@@ -25,7 +25,7 @@ pub use self::clarity_store::{ClarityBackingStore, SpecialCaseHandler};
 pub use self::key_value_wrapper::{RollbackWrapper, RollbackWrapperPersistedLog};
 pub use self::sqlite::SqliteConnection;
 pub use self::structures::{
-    ClarityDeserializable, ClaritySerializable, DataMapMetadata, DataVariableMetadata,
+    ClarityJsonDeserializable, ClarityJsonSerializable, DataMapMetadata, DataVariableMetadata,
     FungibleTokenMetadata, NonFungibleTokenMetadata, STXBalance,
 };
 

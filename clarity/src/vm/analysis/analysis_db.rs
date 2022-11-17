@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use crate::vm::analysis::errors::{CheckError, CheckErrors, CheckResult};
 use crate::vm::analysis::type_checker::ContractAnalysis;
 use crate::vm::database::{
-    ClarityBackingStore, ClarityDeserializable, ClaritySerializable, RollbackWrapper,
+    ClarityBackingStore, ClarityJsonDeserializable, ClarityJsonSerializable, RollbackWrapper,
 };
 use crate::vm::representations::ClarityName;
 use crate::vm::types::signatures::FunctionSignature;

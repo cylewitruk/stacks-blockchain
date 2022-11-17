@@ -23,7 +23,7 @@ use crate::vm::contracts::Contract;
 use crate::vm::costs::CostOverflowingMath;
 use crate::vm::costs::ExecutionCost;
 use crate::vm::database::structures::{
-    ClarityDeserializable, ClaritySerializable, ContractMetadata, DataMapMetadata,
+    ClarityJsonDeserializable, ClarityJsonSerializable, ContractMetadata, DataMapMetadata,
     DataVariableMetadata, FungibleTokenMetadata, NonFungibleTokenMetadata, STXBalance,
     STXBalanceSnapshot, SimmedBlock,
 };
@@ -445,12 +445,12 @@ impl<'a> ClarityDatabase<'a> {
         self.store.set_block_hash(bhh, query_pending_data)
     }
 
-    pub fn put<T: ClaritySerializable>(&mut self, key: &str, value: &T) {
+    pub fn put<T: ClarityJsonSerializable>(&mut self, key: &str, value: &T) {
         self.store.put(&key, &value.serialize());
     }
 
     /// Like `put()`, but returns the serialized byte size of the stored value
-    pub fn put_with_size<T: ClaritySerializable>(&mut self, key: &str, value: &T) -> u64 {
+    pub fn put_with_size<T: ClarityJsonSerializable>(&mut self, key: &str, value: &T) -> u64 {
         let serialized = value.serialize();
         self.store.put(&key, &serialized);
         byte_len_of_serialization(&serialized)
@@ -458,7 +458,7 @@ impl<'a> ClarityDatabase<'a> {
 
     pub fn get<T>(&mut self, key: &str) -> Option<T>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.store.get::<T>(key)
     }
@@ -469,7 +469,7 @@ impl<'a> ClarityDatabase<'a> {
 
     pub fn get_with_proof<T>(&mut self, key: &str) -> Option<(T, Vec<u8>)>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.store.get_with_proof(key)
     }
@@ -541,7 +541,7 @@ impl<'a> ClarityDatabase<'a> {
         self.store.insert_metadata(contract_identifier, key, data);
     }
 
-    fn insert_metadata<T: ClaritySerializable>(
+    fn insert_metadata<T: ClarityJsonSerializable>(
         &mut self,
         contract_identifier: &QualifiedContractIdentifier,
         key: &str,
@@ -564,7 +564,7 @@ impl<'a> ClarityDatabase<'a> {
         key: &str,
     ) -> Result<Option<T>>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.store
             .get_metadata(contract_identifier, key)
@@ -578,7 +578,7 @@ impl<'a> ClarityDatabase<'a> {
         key: &str,
     ) -> Result<Option<T>>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.store
             .get_metadata_manual(at_height, contract_identifier, key)

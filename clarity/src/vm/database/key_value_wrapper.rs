@@ -26,7 +26,7 @@ use stacks_common::util::hash::Sha512Trunc256Sum;
 use crate::types::chainstate::StacksBlockId;
 
 use super::clarity_store::SpecialCaseHandler;
-use super::{ClarityBackingStore, ClarityDeserializable};
+use super::{ClarityBackingStore, ClarityJsonDeserializable};
 
 #[cfg(rollback_value_check)]
 type RollbackValueCheck = String;
@@ -338,7 +338,7 @@ impl<'a> RollbackWrapper<'a> {
     ///  in the underlying store. otherwise it returns None.
     pub fn get_with_proof<T>(&mut self, key: &str) -> Option<(T, Vec<u8>)>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.store
             .get_with_proof(key)
@@ -347,7 +347,7 @@ impl<'a> RollbackWrapper<'a> {
 
     pub fn get<T>(&mut self, key: &str) -> Option<T>
     where
-        T: ClarityDeserializable<T>,
+        T: ClarityJsonDeserializable<T>,
     {
         self.stack
             .last()

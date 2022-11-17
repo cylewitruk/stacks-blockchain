@@ -22,7 +22,7 @@ use std::{cmp, error, fmt, str};
 
 use serde_json::Value as JSONValue;
 
-use crate::vm::database::{ClarityDeserializable, ClaritySerializable};
+use crate::vm::database::{ClarityJsonDeserializable, ClarityJsonSerializable};
 use crate::vm::errors::{
     CheckErrors, Error as ClarityError, IncomparableError, InterpreterError, InterpreterResult,
     RuntimeErrorType,
@@ -881,7 +881,7 @@ impl Write for WriteCounter {
     }
 }
 
-impl ClaritySerializable for Value {
+impl ClarityJsonSerializable for Value {
     fn serialize(&self) -> String {
         let mut byte_serialization = Vec::new();
         self.serialize_write(&mut byte_serialization)
@@ -890,13 +890,13 @@ impl ClaritySerializable for Value {
     }
 }
 
-impl ClarityDeserializable<Value> for Value {
+impl ClarityJsonDeserializable<Value> for Value {
     fn deserialize(hex: &str) -> Self {
         Value::try_deserialize_hex_untyped(hex).expect("ERROR: Failed to parse Clarity hex string")
     }
 }
 
-impl ClaritySerializable for u32 {
+impl ClarityJsonSerializable for u32 {
     fn serialize(&self) -> String {
         let mut buffer = Vec::new();
         buffer
@@ -906,7 +906,7 @@ impl ClaritySerializable for u32 {
     }
 }
 
-impl ClarityDeserializable<u32> for u32 {
+impl ClarityJsonDeserializable<u32> for u32 {
     fn deserialize(input: &str) -> Self {
         let bytes = hex_bytes(&input).expect("u32 deserialization: failed decoding bytes.");
         assert_eq!(bytes.len(), 4);
@@ -947,7 +947,7 @@ mod tests {
 
     use std::io::Write;
 
-    use crate::vm::database::{ClarityDeserializable, ClaritySerializable};
+    use crate::vm::database::{ClarityJsonDeserializable, ClarityJsonSerializable};
     use crate::vm::errors::Error;
     use crate::vm::types::TypeSignature::{BoolType, IntType};
 

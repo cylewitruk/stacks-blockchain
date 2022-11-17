@@ -19,7 +19,7 @@ use std::convert::{TryFrom, TryInto};
 
 use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{cost_functions, runtime_cost, CostTracker};
-use crate::vm::database::{ClarityDatabase, ClaritySerializable, STXBalance};
+use crate::vm::database::{ClarityDatabase, ClarityJsonSerializable, STXBalance};
 use crate::vm::errors::{
     check_argument_count, CheckErrors, Error, InterpreterError, InterpreterResult as Result,
     RuntimeErrorType,
