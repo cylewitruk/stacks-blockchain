@@ -348,6 +348,6 @@ fn isatty(stream: Stream) -> bool {
 }
 
 #[cfg(not(unix))]
-fn isatty(stream: Stream) -> bool {
+fn isatty(_stream: Stream) -> bool {
     false
 }
