@@ -22,23 +22,21 @@ use std::io::Write;
 
 use rusqlite::{
     blob::Blob,
-    types::{ToSql},
+    types::ToSql,
     Connection, OptionalExtension, Transaction, NO_PARAMS,
 };
 
-use crate::{
-    bits::{
-        read_node_hash_bytes as bits_read_node_hash_bytes, read_nodetype, read_nodetype_nohash,
-    },
-    node::{TrieNodeType, TriePtr},
-    trie_sql, MarfTrieId, Error
+use crate::bits::{
+    read_node_hash_bytes as bits_read_node_hash_bytes, read_nodetype, read_nodetype_nohash,
 };
 
+use crate::node::{TrieNodeType, TriePtr};
+use crate::Error;
+use crate::{trie_sql, MarfTrieId};
 use crate::sqliteutils::query_count;
 use crate::sqliteutils::query_row;
 use crate::sqliteutils::tx_begin_immediate;
 use crate::sqliteutils::u64_to_sql;
-
 use stacks_common::types::chainstate::TrieHash;
 
 static SQL_MARF_DATA_TABLE: &str = "

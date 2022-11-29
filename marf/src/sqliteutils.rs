@@ -31,7 +31,7 @@ use stacks_common::util::sleep_ms;
 use stacks_common::types::chainstate::SortitionId;
 use stacks_common::types::chainstate::StacksBlockId;
 
-use clarity::vm::types::QualifiedContractIdentifier;
+//use clarity::vm::types::QualifiedContractIdentifier;
 
 use stacks_common::util::secp256k1::Secp256k1PrivateKey;
 use stacks_common::util::secp256k1::Secp256k1PublicKey;
@@ -46,13 +46,16 @@ use rusqlite::Transaction;
 use rusqlite::TransactionBehavior;
 use rusqlite::NO_PARAMS;
 
-use crate::marf::MarfConnection;
-use crate::marf::MarfTransaction;
-use crate::marf::MARF;
-use crate::Error as MARFError;
-use crate::MARFValue;
-use crate::MarfTrieId;
-use stacks_common::types::chainstate::TrieHash;
+use crate::{
+    marf::MarfConnection,
+    marf::MarfTransaction,
+    marf::MARF,
+    Error as MARFError,
+    MARFValue,
+    MarfTrieId,
+    TrieHash,
+};
+
 
 use rand::thread_rng;
 use rand::Rng;
@@ -233,7 +236,7 @@ impl FromColumn<i64> for i64 {
     }
 }
 
-impl FromColumn<QualifiedContractIdentifier> for QualifiedContractIdentifier {
+/*impl FromColumn<QualifiedContractIdentifier> for QualifiedContractIdentifier {
     fn from_column<'a>(
         row: &'a Row,
         column_name: &str,
@@ -241,12 +244,42 @@ impl FromColumn<QualifiedContractIdentifier> for QualifiedContractIdentifier {
         let value: String = row.get_unwrap(column_name);
         QualifiedContractIdentifier::parse(&value).map_err(|_| Error::ParseError)
     }
-}
+}*/
 
 impl FromRow<bool> for bool {
     fn from_row<'a>(row: &'a Row) -> Result<bool, Error> {
         let x: bool = row.get_unwrap(0);
         Ok(x)
+    }
+}
+
+impl FromRow<(u32, u32)> for (u32, u32) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u32, u32), Error> {
+        let t1: u32 = row.get_unwrap(0);
+        let t2: u32 = row.get_unwrap(1);
+        Ok((t1, t2))
+    }
+}
+
+impl FromRow<(u64, u32)> for (u64, u32) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u64, u32), Error> {
+        let t1: i64 = row.get_unwrap(0);
+        if t1 < 0 {
+            return Err(Error::ParseError)
+        }
+        let t2: u32 = row.get_unwrap(1);
+        Ok((t1 as u64, t2))
+    }
+}
+
+impl FromRow<(u64, u64)> for (u64, u64) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u64, u64), Error> {
+        let t1: i64 = row.get_unwrap(0);
+        let t2: i64 = row.get_unwrap(1);
+        if t1 < 0 || t2 < 0 {
+            return Err(Error::ParseError)
+        }
+        Ok((t1 as u64, t2 as u64))
     }
 }
 
@@ -400,7 +433,10 @@ where
 
 /// boilerplate code for querying a single row
 ///   if more than 1 row is returned, excess rows are ignored.
-pub fn query_row<T, P>(conn: &Connection, sql_query: &str, sql_args: P) -> Result<Option<T>, Error>
+pub fn query_row<T, P>(
+    conn: &Connection, 
+    sql_query: &str, 
+    sql_args: P) -> Result<Option<T>, Error>
 where
     P: IntoIterator,
     P::Item: ToSql,
