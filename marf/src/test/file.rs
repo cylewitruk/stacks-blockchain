@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    cache::test::make_test_insert_data,
+    test::cache::make_test_insert_data,
     node::*,
     file::*,
     marf::*,
