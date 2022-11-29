@@ -31,7 +31,7 @@ use crate::vm::errors::{
 
 const SQL_FAIL_MESSAGE: &str = "PANIC: SQL Failure in Smart Contract VM.";
 
-pub struct SqliteConnection {
+pub struct ClaritySqliteConnection {
     conn: Connection,
 }
 
@@ -75,7 +75,7 @@ fn sqlite_has_entry(conn: &Connection, key: &str) -> bool {
     sqlite_get(conn, key).is_some()
 }
 
-impl SqliteConnection {
+impl ClaritySqliteConnection {
     pub fn put(conn: &Connection, key: &str, value: &str) {
         sqlite_put(conn, key, value)
     }
@@ -157,7 +157,7 @@ impl SqliteConnection {
     }
 }
 
-impl SqliteConnection {
+impl ClaritySqliteConnection {
     pub fn initialize_conn(conn: &Connection) -> Result<()> {
         conn.query_row("PRAGMA journal_mode = WAL;", NO_PARAMS, |_row| Ok(()))
             .map_err(|x| InterpreterError::SqliteError(IncomparableError { err: x }))?;
@@ -182,13 +182,13 @@ impl SqliteConnection {
         Ok(())
     }
     pub fn memory() -> Result<Connection> {
-        let contract_db = SqliteConnection::inner_open(":memory:")?;
-        SqliteConnection::initialize_conn(&contract_db)?;
+        let contract_db = ClaritySqliteConnection::inner_open(":memory:")?;
+        ClaritySqliteConnection::initialize_conn(&contract_db)?;
         Ok(contract_db)
     }
     pub fn open(filename: &str) -> Result<Connection> {
-        let contract_db = SqliteConnection::inner_open(filename)?;
-        SqliteConnection::check_schema(&contract_db)?;
+        let contract_db = ClaritySqliteConnection::inner_open(filename)?;
+        ClaritySqliteConnection::check_schema(&contract_db)?;
         Ok(contract_db)
     }
     pub fn check_schema(conn: &Connection) -> Result<()> {

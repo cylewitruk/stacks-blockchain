@@ -22,7 +22,7 @@ use rusqlite::Connection;
 use crate::vm::analysis::AnalysisDatabase;
 use crate::vm::database::{
     BurnStateDB, ClarityDatabase, ClarityJsonDeserializable, ClarityJsonSerializable, HeadersDB,
-    SqliteConnection, NULL_BURN_STATE_DB, NULL_HEADER_DB,
+    ClaritySqliteConnection, NULL_BURN_STATE_DB, NULL_HEADER_DB,
 };
 use crate::vm::errors::{
     CheckErrors, IncomparableError, InterpreterError, InterpreterResult as Result,
@@ -123,7 +123,7 @@ pub trait ClarityBackingStore {
 
     fn insert_metadata(&mut self, contract: &QualifiedContractIdentifier, key: &str, value: &str) {
         let bhh = self.get_open_chain_tip();
-        SqliteConnection::insert_metadata(
+        ClaritySqliteConnection::insert_metadata(
             self.get_side_store(),
             &bhh,
             &contract.to_string(),
@@ -138,7 +138,7 @@ pub trait ClarityBackingStore {
         key: &str,
     ) -> Result<Option<String>> {
         let (bhh, _) = self.get_contract_hash(contract)?;
-        Ok(SqliteConnection::get_metadata(
+        Ok(ClaritySqliteConnection::get_metadata(
             self.get_side_store(),
             &bhh,
             &contract.to_string(),
@@ -157,7 +157,7 @@ pub trait ClarityBackingStore {
                 warn!("Unknown block height when manually querying metadata"; "block_height" => at_height);
                 RuntimeErrorType::BadBlockHeight(at_height.to_string())
             })?;
-        Ok(SqliteConnection::get_metadata(
+        Ok(ClaritySqliteConnection::get_metadata(
             self.get_side_store(),
             &bhh,
             &contract.to_string(),
@@ -256,7 +256,7 @@ pub struct MemoryBackingStore {
 
 impl MemoryBackingStore {
     pub fn new() -> MemoryBackingStore {
-        let side_store = SqliteConnection::memory().unwrap();
+        let side_store = ClaritySqliteConnection::memory().unwrap();
 
         let mut memory_marf = MemoryBackingStore { side_store };
 
@@ -280,11 +280,11 @@ impl ClarityBackingStore for MemoryBackingStore {
     }
 
     fn get(&mut self, key: &str) -> Option<String> {
-        SqliteConnection::get(self.get_side_store(), key)
+        ClaritySqliteConnection::get(self.get_side_store(), key)
     }
 
     fn get_with_proof(&mut self, key: &str) -> Option<(String, Vec<u8>)> {
-        SqliteConnection::get(self.get_side_store(), key).map(|x| (x, vec![]))
+        ClaritySqliteConnection::get(self.get_side_store(), key).map(|x| (x, vec![]))
     }
 
     fn get_side_store(&mut self) -> &Connection {
@@ -317,7 +317,7 @@ impl ClarityBackingStore for MemoryBackingStore {
 
     fn put_all(&mut self, items: Vec<(String, String)>) {
         for (key, value) in items.into_iter() {
-            SqliteConnection::put(self.get_side_store(), &key, &value);
+            ClaritySqliteConnection::put(self.get_side_store(), &key, &value);
         }
     }
 }

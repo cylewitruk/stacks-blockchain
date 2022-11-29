@@ -8,7 +8,7 @@ use crate::core::{FIRST_BURNCHAIN_CONSENSUS_HASH, FIRST_STACKS_BLOCK_HASH};
 use crate::util_lib::db::IndexDBConn;
 use clarity::vm::analysis::AnalysisDatabase;
 use clarity::vm::database::{
-    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, SqliteConnection,
+    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, ClaritySqliteConnection,
 };
 use clarity::vm::errors::{
     IncomparableError, InterpreterError, InterpreterResult, RuntimeErrorType,
@@ -64,7 +64,7 @@ impl MarfedKV {
                 .map_err(|err| InterpreterError::MarfFailure(err.to_string()))?
         };
 
-        if SqliteConnection::check_schema(&marf.sqlite_conn()).is_ok() {
+        if ClaritySqliteConnection::check_schema(&marf.sqlite_conn()).is_ok() {
             // no need to initialize
             return Ok(marf);
         }
@@ -73,7 +73,7 @@ impl MarfedKV {
             .storage_tx()
             .map_err(|err| InterpreterError::DBError(err.to_string()))?;
 
-        SqliteConnection::initialize_conn(&tx)?;
+        ClaritySqliteConnection::initialize_conn(&tx)?;
         tx.commit()
             .map_err(|err| InterpreterError::SqliteError(IncomparableError { err }))?;
 
@@ -397,7 +397,7 @@ impl<'a> ClarityBackingStore for ReadOnlyMarfStore<'a> {
             .map(|(marf_value, proof)| {
                 let side_key = marf_value.to_hex();
                 let data =
-                    SqliteConnection::get(self.get_side_store(), &side_key).expect(&format!(
+                    ClaritySqliteConnection::get(self.get_side_store(), &side_key).expect(&format!(
                         "ERROR: MARF contained value_hash not found in side storage: {}",
                         side_key
                     ));
@@ -424,7 +424,7 @@ impl<'a> ClarityBackingStore for ReadOnlyMarfStore<'a> {
             .map(|marf_value| {
                 let side_key = marf_value.to_hex();
                 trace!("MarfedKV get side-key for {:?}: {:?}", key, &side_key);
-                SqliteConnection::get(self.get_side_store(), &side_key).expect(&format!(
+                ClaritySqliteConnection::get(self.get_side_store(), &side_key).expect(&format!(
                     "ERROR: MARF contained value_hash not found in side storage: {}",
                     side_key
                 ))
@@ -456,13 +456,13 @@ impl<'a> WritableMarfStore<'a> {
 
     pub fn rollback_unconfirmed(self) {
         debug!("Drop unconfirmed MARF trie {}", &self.chain_tip);
-        SqliteConnection::drop_metadata(self.marf.sqlite_tx(), &self.chain_tip);
+        ClaritySqliteConnection::drop_metadata(self.marf.sqlite_tx(), &self.chain_tip);
         self.marf.drop_unconfirmed();
     }
 
     pub fn commit_to(self, final_bhh: &StacksBlockId) {
         debug!("commit_to({})", final_bhh);
-        SqliteConnection::commit_metadata_to(self.marf.sqlite_tx(), &self.chain_tip, final_bhh);
+        ClaritySqliteConnection::commit_metadata_to(self.marf.sqlite_tx(), &self.chain_tip, final_bhh);
 
         let _ = self.marf.commit_to(final_bhh).map_err(|e| {
             error!("Failed to commit to MARF block {}: {:?}", &final_bhh, &e);
@@ -498,7 +498,7 @@ impl<'a> WritableMarfStore<'a> {
         //    included in the processed chainstate (like a block constructed during mining)
         //    _if_ for some reason, we do want to be able to access that mined chain state in the future,
         //    we should probably commit the data to a different table which does not have uniqueness constraints.
-        SqliteConnection::drop_metadata(self.marf.sqlite_tx(), &self.chain_tip);
+        ClaritySqliteConnection::drop_metadata(self.marf.sqlite_tx(), &self.chain_tip);
         let _ = self.marf.commit_mined(will_move_to).map_err(|e| {
             error!(
                 "Failed to commit to mined MARF block {}: {:?}",
@@ -563,7 +563,7 @@ impl<'a> ClarityBackingStore for WritableMarfStore<'a> {
             .map(|marf_value| {
                 let side_key = marf_value.to_hex();
                 trace!("MarfedKV get side-key for {:?}: {:?}", key, &side_key);
-                SqliteConnection::get(self.marf.sqlite_tx(), &side_key).expect(&format!(
+                ClaritySqliteConnection::get(self.marf.sqlite_tx(), &side_key).expect(&format!(
                     "ERROR: MARF contained value_hash not found in side storage: {}",
                     side_key
                 ))
@@ -581,7 +581,7 @@ impl<'a> ClarityBackingStore for WritableMarfStore<'a> {
             .map(|(marf_value, proof)| {
                 let side_key = marf_value.to_hex();
                 let data =
-                    SqliteConnection::get(self.marf.sqlite_tx(), &side_key).expect(&format!(
+                    ClaritySqliteConnection::get(self.marf.sqlite_tx(), &side_key).expect(&format!(
                         "ERROR: MARF contained value_hash not found in side storage: {}",
                         side_key
                     ));
@@ -656,7 +656,7 @@ impl<'a> ClarityBackingStore for WritableMarfStore<'a> {
         for (key, value) in items.into_iter() {
             trace!("MarfedKV put '{}' = '{}'", &key, &value);
             let marf_value = MARFValue::from_value(&value);
-            SqliteConnection::put(self.get_side_store(), &marf_value.to_hex(), &value);
+            ClaritySqliteConnection::put(self.get_side_store(), &marf_value.to_hex(), &value);
             keys.push(key);
             values.push(marf_value);
         }

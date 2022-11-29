@@ -24,7 +24,7 @@ use crate::chainstate::stacks::index::MarfTrieId;
 use crate::util_lib::db::{DBConn, FromRow};
 use clarity::vm::analysis::AnalysisDatabase;
 use clarity::vm::database::{
-    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, SqliteConnection,
+    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, ClaritySqliteConnection,
     NULL_BURN_STATE_DB, NULL_HEADER_DB,
 };
 use clarity::vm::errors::{InterpreterResult, RuntimeErrorType};

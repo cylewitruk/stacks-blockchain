@@ -75,7 +75,7 @@ use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::OwnedEnvironment;
 use clarity::vm::costs::{ExecutionCost, LimitedCostTracker};
 use clarity::vm::database::{
-    BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, SqliteConnection, NULL_BURN_STATE_DB,
+    BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, ClaritySqliteConnection, NULL_BURN_STATE_DB,
 };
 
 use crate::clarity_vm::clarity::PreCommitClarityBlock;

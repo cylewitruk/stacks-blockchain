@@ -50,7 +50,7 @@ use crate::clarity::{
     vm::costs::ExecutionCost,
     vm::costs::LimitedCostTracker,
     vm::database::{
-        BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, SqliteConnection, NULL_BURN_STATE_DB,
+        BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, ClaritySqliteConnection, NULL_BURN_STATE_DB,
     },
     vm::errors::{Error, InterpreterResult, RuntimeErrorType},
     vm::eval_all,

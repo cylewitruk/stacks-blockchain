@@ -13,7 +13,7 @@ use crate::util_lib::db::FromColumn;
 use crate::util_lib::db::{DBConn, FromRow};
 use clarity::vm::analysis::AnalysisDatabase;
 use clarity::vm::database::{
-    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, SqliteConnection,
+    BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, ClaritySqliteConnection,
     NULL_BURN_STATE_DB, NULL_HEADER_DB,
 };
 use clarity::vm::errors::{InterpreterResult, RuntimeErrorType};
@@ -622,7 +622,7 @@ pub struct MemoryBackingStore {
 
 impl MemoryBackingStore {
     pub fn new() -> MemoryBackingStore {
-        let side_store = SqliteConnection::memory().unwrap();
+        let side_store = ClaritySqliteConnection::memory().unwrap();
 
         let mut memory_marf = MemoryBackingStore { side_store };
 
@@ -656,11 +656,11 @@ impl ClarityBackingStore for MemoryBackingStore {
     }
 
     fn get(&mut self, key: &str) -> Option<String> {
-        SqliteConnection::get(self.get_side_store(), key)
+        ClaritySqliteConnection::get(self.get_side_store(), key)
     }
 
     fn get_with_proof(&mut self, key: &str) -> Option<(String, Vec<u8>)> {
-        SqliteConnection::get(self.get_side_store(), key).map(|x| (x, vec![]))
+        ClaritySqliteConnection::get(self.get_side_store(), key).map(|x| (x, vec![]))
     }
 
     fn get_side_store(&mut self) -> &Connection {
@@ -693,7 +693,7 @@ impl ClarityBackingStore for MemoryBackingStore {
 
     fn put_all(&mut self, items: Vec<(String, String)>) {
         for (key, value) in items.into_iter() {
-            SqliteConnection::put(self.get_side_store(), &key, &value);
+            ClaritySqliteConnection::put(self.get_side_store(), &key, &value);
         }
     }
 }

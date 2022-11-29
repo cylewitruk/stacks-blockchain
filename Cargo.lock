@@ -1572,6 +1572,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "marf"
+version = "0.0.1"
+dependencies = [
+ "rand 0.7.3",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.10.2",
+ "slog",
+ "stacks-common",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
