@@ -18,7 +18,7 @@ pub struct TrieStorageConnection<'a, TTrieId, TIndex>
     pub db_path: &'a str,
     index: &'a TIndex,
     blobs: Option<&'a mut TrieFile>,
-    data: &'a mut TrieStorageTransientData<TTrieId, TIndex>,
+    data: &'a mut TrieStorageTransientData<TTrieId>,
     cache: &'a mut TrieCache<TTrieId>,
     bench: &'a mut TrieBenchmark,
     pub hash_calculation_mode: TrieHashCalculationMode,

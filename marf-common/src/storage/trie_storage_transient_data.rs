@@ -9,9 +9,9 @@ use super::{UncommittedState, TrieIndexProvider};
 ///   to the underlying SQL storage. Used internally to simplify
 ///   the TrieStorageConnection/TrieFileStorage interactions
 ///
-pub struct TrieStorageTransientData<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+pub struct TrieStorageTransientData<TTrieId: MarfTrieId> {
     /// This is all the nodes written but not yet committed to disk.
-    pub uncommitted_writes: Option<(TTrieId, UncommittedState<TTrieId, TIndex>)>,
+    pub uncommitted_writes: Option<(TTrieId, UncommittedState<TTrieId>)>,
 
     /// Currently-open block (may be `uncommitted_writes.unwrap().0`)
     cur_block: TTrieId,
@@ -44,7 +44,7 @@ pub struct TrieStorageTransientData<TTrieId: MarfTrieId, TIndex: TrieIndexProvid
     unconfirmed: bool,
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieStorageTransientData<TTrieId, TIndex> {
+impl<TTrieId: MarfTrieId> TrieStorageTransientData<TTrieId> {
     /// Target the transient data to a particular block, and optionally its block ID
     fn set_block(&mut self, bhh: TTrieId, id: Option<u32>) {
         trace!("set_block({},{:?})", &bhh, &id);

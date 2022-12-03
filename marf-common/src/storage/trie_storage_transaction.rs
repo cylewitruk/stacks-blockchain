@@ -22,7 +22,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> Deref for TrieStorageTr
 }
 
 impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> DerefMut for TrieStorageTransaction<'a, TTrieId, TIndex> {
-    fn deref_mut(&mut self) -> &mut TrieStorageConnection<'a, TTrieId, &mut dyn TrieIndexProvider> {
+    fn deref_mut(&mut self) -> &mut TrieStorageConnection<'a, TTrieId, TIndex> {
         &mut self.0
     }
 }

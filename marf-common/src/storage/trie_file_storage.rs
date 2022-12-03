@@ -9,9 +9,9 @@ pub struct TrieFileStorage<TTrieId, TIndex>
 {
     pub db_path: String,
 
-    index: dyn TrieIndexProvider,
+    index: Box<TIndex>,
     blobs: Option<TrieFile>,
-    data: TrieStorageTransientData<TTrieId, TIndex>,
+    data: TrieStorageTransientData<TTrieId>,
     cache: TrieCache<TTrieId>,
     bench: TrieBenchmark,
     hash_calculation_mode: TrieHashCalculationMode,
@@ -81,7 +81,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorage<TTrieId, TI
     }
 }
 
-impl<TTrieId: MarfTrieId> BlockMap for TrieFileStorage<TTrieId, dyn TrieIndexProvider> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieFileStorage<TTrieId, TIndex> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {

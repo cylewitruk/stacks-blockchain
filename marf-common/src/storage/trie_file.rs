@@ -1,6 +1,8 @@
 use std::{env, io::{SeekFrom, Cursor, self}, fs::{self, OpenOptions}, collections::HashMap, path::Path};
 
-use crate::{MarfError, MarfTrieId};
+use stacks_common::types::chainstate::TrieHash;
+
+use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}, utils::Utils};
 
 /// Mapping between block IDs and trie offsets
 pub type TrieIdOffsets = HashMap<u32, u64>;
@@ -271,5 +273,129 @@ impl TrieFile {
         debug!("Mark MARF trie migration of '{}' as finished", db_path);
         trie_sql::set_migrated(db).expect("FATAL: failed to mark DB as migrated");
         Ok(())
+    }
+}
+
+impl TrieFile {
+    /// Determine the file offset in the TrieFile where a serialized trie starts.
+    /// The offsets are stored in the given DB, and are cached indefinitely once loaded.
+    pub fn get_trie_offset(&mut self, db: &Connection, block_id: u32) -> Result<u64, MarfError> {
+        let offset_opt = match self {
+            TrieFile::RAM(ref ram) => ram.trie_offsets.get(&block_id),
+            TrieFile::Disk(ref disk) => disk.trie_offsets.get(&block_id),
+        };
+        match offset_opt {
+            Some(offset) => Ok(*offset),
+            None => {
+                let (offset, _length) = trie_sql::get_external_trie_offset_length(db, block_id)?;
+                match self {
+                    TrieFile::RAM(ref mut ram) => ram.trie_offsets.insert(block_id, offset),
+                    TrieFile::Disk(ref mut disk) => disk.trie_offsets.insert(block_id, offset),
+                };
+                Ok(offset)
+            }
+        }
+    }
+
+    /// Obtain a TrieHash for a node, given its block ID and pointer
+    pub fn get_node_hash_bytes(
+        &mut self,
+        db: &Connection,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<TrieHash, MarfError> {
+        let offset = self.get_trie_offset(db, block_id)?;
+        self.seek(SeekFrom::Start(offset + (ptr.ptr() as u64)))?;
+        let hash_buff = Utils::read_hash_bytes(self)?;
+        Ok(TrieHash(hash_buff))
+    }
+
+    /// Obtain a TrieNodeType and its associated TrieHash for a node, given its block ID and
+    /// pointer
+    pub fn read_node_type(
+        &mut self,
+        db: &Connection,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<(TrieNodeType, TrieHash), MarfError> {
+        let offset = self.get_trie_offset(db, block_id)?;
+        self.seek(SeekFrom::Start(offset + (ptr.ptr() as u64)))?;
+        self.read_nodetype_at_head(self, ptr.id())
+    }
+
+    /// Obtain a TrieNodeType, given its block ID and pointer
+    pub fn read_node_type_nohash(
+        &mut self,
+        db: &Connection,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<TrieNodeType, MarfError> {
+        let offset = self.get_trie_offset(db, block_id)?;
+        self.seek(SeekFrom::Start(offset + (ptr.ptr() as u64)))?;
+        self.read_nodetype_at_head_nohash(self, ptr.id())
+    }
+
+    /// Obtain a TrieHash for a node, given the node's block's hash (used only in testing)
+    #[cfg(test)]
+    pub fn get_node_hash_bytes_by_bhh<T: MarfTrieId>(
+        &mut self,
+        db: &Connection,
+        bhh: &T,
+        ptr: &TriePtr,
+    ) -> Result<TrieHash, MarfError> {
+        let (offset, _length) = trie_sql::get_external_trie_offset_length_by_bhh(db, bhh)?;
+        self.seek(SeekFrom::Start(offset + (ptr.ptr() as u64)))?;
+        let hash_buff = Utils::read_hash_bytes(self)?;
+        Ok(TrieHash(hash_buff))
+    }
+
+    /// Get all (root hash, trie hash) pairs for this TrieFile
+    #[cfg(test)]
+    pub fn read_all_block_hashes_and_roots<T: MarfTrieId>(
+        &mut self,
+        db: &Connection,
+    ) -> Result<Vec<(TrieHash, T)>, MarfError> {
+        use rusqlite::NO_PARAMS;
+        use crate::storage::TrieStorageConnection;
+
+        let mut s =
+            db.prepare("SELECT block_hash, external_offset FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash")?;
+        let rows = s.query_and_then(NO_PARAMS, |row| {
+            let block_hash: T = row.get_unwrap("block_hash");
+            let offset_i64: i64 = row.get_unwrap("external_offset");
+            let offset = offset_i64 as u64;
+            let start = TrieStorageConnection::<T>::root_ptr_disk() as u64;
+
+            self.seek(SeekFrom::Start(offset + start))?;
+            let hash_buff = Utils::read_hash_bytes(self)?;
+            let root_hash = TrieHash(hash_buff);
+
+            trace!(
+                "Root hash for block {} at offset {} is {}",
+                &block_hash,
+                offset + start,
+                &root_hash
+            );
+            Ok((root_hash, block_hash))
+        })?;
+        rows.collect()
+    }
+
+    /// Append a serialized trie to the TrieFile.
+    /// Returns the offset at which it was appended.
+    pub fn append_trie_blob(&mut self, db: &Connection, buf: &[u8]) -> Result<u64, MarfError> {
+        let offset = trie_sql::get_external_blobs_length(db)?;
+        test_debug!("Write trie of {} bytes at {}", buf.len(), offset);
+        self.seek(SeekFrom::Start(offset))?;
+        self.write_all(buf)?;
+        self.flush()?;
+
+        match self {
+            TrieFile::Disk(ref mut data) => {
+                data.fd.sync_data()?;
+            }
+            _ => {}
+        }
+        Ok(offset)
     }
 }

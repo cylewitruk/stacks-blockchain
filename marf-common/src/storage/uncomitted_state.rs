@@ -4,18 +4,18 @@ use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}};
 
-use super::{TrieStorageTransaction, TrieIndexProvider};
+use super::{TrieStorageTransaction, TrieIndexProvider, TrieRAM};
 
 /// Uncommitted storage state to be flushed
 #[derive(Clone)]
-pub enum UncommittedState<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+pub enum UncommittedState<TTrieId: MarfTrieId> {
     /// read-write
     RW(TrieRAM<TTrieId>),
     /// read-only, sealed, with root hash
     Sealed(TrieRAM<TTrieId>, TrieHash),
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> UncommittedState<TTrieId, TIndex> {
+impl<TTrieId: MarfTrieId> UncommittedState<TTrieId> {
     /// Clear the contents
     pub fn format(&mut self) -> Result<(), MarfError> {
         match self {
@@ -98,10 +98,10 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> UncommittedState<TTrieId, T
 
     /// Seal the TrieRAM.  Calculate its root hash and prevent any subsequent writes from
     /// succeeding.
-    fn seal(
+    fn seal<TIndex: TrieIndexProvider>(
         self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
-    ) -> Result<UncommittedState<TTrieId, TIndex>, MarfError> {
+    ) -> Result<UncommittedState<TTrieId>, MarfError> {
         match self {
             UncommittedState::RW(mut trie_ram) => {
                 let root_hash = trie_ram.inner_seal(storage_tx)?;
@@ -115,7 +115,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> UncommittedState<TTrieId, T
 
     /// Dump the TrieRAM to the given writeable `f`.  If the TrieRAM is not sealed yet, then seal
     /// it first and then dump it.
-    fn dump<F: Write + Seek>(
+    fn dump<F: Write + Seek, TIndex: TrieIndexProvider>(
         self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
         f: &mut F,

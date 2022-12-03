@@ -95,7 +95,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> MarfTransaction<'a, TTr
     /// Reopen this MARF transaction with readonly storage.
     ///   NOTE: any pending operations in the SQLite transaction _will not_
     ///         have materialized in the reopened view.
-    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId, TIndex>, MarfError> {
+    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId>, MarfError> {
         if self.open_chain_tip.is_some() {
             error!(
                 "MARF at {} is already in the process of writing",
