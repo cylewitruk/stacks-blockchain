@@ -1,6 +1,8 @@
 use std::{fmt, io::Read};
 
-use crate::{utils::Utils, MarfError, tries::TriePtr};
+use stacks_common::util::hash::to_hex;
+
+use crate::{MarfError, tries::TriePtr, utils::Utils};
 
 use super::{TrieNode, TrieNodeID, TrieNodeType};
 
@@ -16,7 +18,7 @@ impl fmt::Debug for TrieNode4 {
         write!(
             f,
             "TrieNode4(path={} ptrs={})",
-            &Utils::to_hex(&self.path),
+            &to_hex(&self.path),
             Utils::ptrs_fmt(&self.ptrs)
         )
     }

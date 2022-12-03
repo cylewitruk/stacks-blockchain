@@ -1,5 +1,7 @@
 use std::{fmt, io::{Read, Write}};
 
+use stacks_common::util::{hash::to_hex, slice_partialeq};
+
 use crate::{utils::Utils, MarfError, tries::TriePtr};
 
 use super::{TrieNode, TrieNodeID, TrieNode16, TrieNodeType};
@@ -17,7 +19,7 @@ impl fmt::Debug for TrieNode48 {
         write!(
             f,
             "TrieNode48(path={} ptrs={})",
-            &Utils::to_hex(&self.path),
+            &to_hex(&self.path),
             Utils::ptrs_fmt(&self.ptrs)
         )
     }
@@ -26,8 +28,8 @@ impl fmt::Debug for TrieNode48 {
 impl PartialEq for TrieNode48 {
     fn eq(&self, other: &TrieNode48) -> bool {
         self.path == other.path
-            && Utils::slice_partialeq(&self.ptrs, &other.ptrs)
-            && Utils::slice_partialeq(&self.indexes, &other.indexes)
+            && slice_partialeq(&self.ptrs, &other.ptrs)
+            && slice_partialeq(&self.indexes, &other.indexes)
     }
 }
 

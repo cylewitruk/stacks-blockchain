@@ -2,7 +2,7 @@ use std::io::{Write, Read, ErrorKind, Seek, SeekFrom};
 
 use stacks_common::{types::chainstate::TrieHash, util::hash::to_hex};
 
-use crate::{errors::MarfError, BlockMap, tries::{TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48}, TRIEPTR_SIZE, TRIEPATH_MAX_LEN, TrieLeaf}, storage::{TrieIndexProvider, TrieStorageConnection}, consensus_serialization::ConsensusSerializable, MarfTrieId, TRIEHASH_ENCODED_SIZE};
+use crate::{errors::MarfError, BlockMap, tries::{TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, TRIEPTR_SIZE, TRIEPATH_MAX_LEN, TrieLeaf}, storage::{TrieIndexProvider, TrieStorageConnection}, consensus_serialization::ConsensusSerializable, MarfTrieId, TRIEHASH_ENCODED_SIZE};
 
 pub struct Utils;
 
@@ -35,7 +35,7 @@ impl Utils {
         strs.join(",")
     }
 
-    fn write_ptrs_to_bytes<W: Write>(ptrs: &[TriePtr], w: &mut W) -> Result<(), MarfError> {
+    pub fn write_ptrs_to_bytes<W: Write>(ptrs: &[TriePtr], w: &mut W) -> Result<(), MarfError> {
         for ptr in ptrs.iter() {
             ptr.write_bytes(w)?;
         }
@@ -289,7 +289,7 @@ impl Utils {
     /// Read the root hash from a TrieFileStorage instance
     pub fn read_root_hash<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(s: &mut TrieStorageConnection<TTrieId, TIndex>) -> Result<TrieHash, MarfError> {
         let ptr = s.root_trieptr();
-        Ok(s.read_node_hash_bytes(&ptr)?)
+        Ok(s.read_nodeslice_partialeq_hash_bytes(&ptr)?)
     }
 
     /// count the number of allocated children in a list of a node's children pointers.
@@ -356,7 +356,7 @@ impl Utils {
     /// Y is variable, but no more than TriePath::len().
     ///
     /// If `read_hash` is false, then the contents of the node hash are undefined.
-    fn inner_read_nodetype_at_head<F: Read + Seek>(
+    pub fn inner_read_nodetype_at_head<F: Read + Seek>(
         f: &mut F,
         ptr_id: u8,
         read_hash: bool,

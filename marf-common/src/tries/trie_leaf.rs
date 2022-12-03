@@ -1,5 +1,7 @@
 use std::{fmt, io::{Read, Write}};
 
+use stacks_common::util::{slice_partialeq, hash::to_hex};
+
 use crate::{MarfValue, utils::Utils, MarfError, MARF_VALUE_ENCODED_SIZE};
 
 use super::{nodes::{TrieNode, TrieNodeID, TrieNodeType}, TriePtr};
@@ -35,7 +37,7 @@ impl fmt::Debug for TrieLeaf {
         write!(
             f,
             "TrieLeaf(path={} data={})",
-            &Utils::to_hex(&self.path),
+            &to_hex(&self.path),
             &self.data.to_hex()
         )
     }
@@ -43,7 +45,7 @@ impl fmt::Debug for TrieLeaf {
 
 impl PartialEq for TrieLeaf {
     fn eq(&self, other: &TrieLeaf) -> bool {
-        self.path == other.path && Utils::slice_partialeq(self.data.as_bytes(), other.data.as_bytes())
+        self.path == other.path && slice_partialeq(self.data.as_bytes(), other.data.as_bytes())
     }
 }
 

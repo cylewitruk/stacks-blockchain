@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use crate::{errors::MarfError, BlockMap, tries::{TrieLeaf, TriePtr}};
+use crate::{errors::MarfError, BlockMap, tries::{TrieLeaf, TriePtr}, consensus_serialization::ConsensusSerializable};
 
-use super::{TrieNode4, TrieNode16, TrieNode48, TrieNode256};
+use super::{TrieNode4, TrieNode16, TrieNode48, TrieNode256, TrieNode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrieNodeType {

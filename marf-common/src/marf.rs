@@ -15,12 +15,12 @@ use crate::{
 };
 
 /// Merklized Adaptive-Radix Forest -- a collection of Merklized Adaptive-Radix Tries.
-pub struct Marf<TTrieId: MarfTrieId> {
-    storage: TrieFileStorage<TTrieId, dyn TrieIndexProvider>,
+pub struct Marf<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+    storage: TrieFileStorage<TTrieId, TIndex>,
     open_chain_tip: Option<WriteChainTip<TTrieId>>,
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> MarfConnection<TTrieId, TIndex> for Marf<TTrieId> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> MarfConnection<TTrieId, TIndex> for Marf<TTrieId, TIndex> {
     fn with_conn<F, R>(&mut self, exec: F) -> R
     where
         F: FnOnce(&mut TrieStorageConnection<TTrieId, TIndex>) -> R,
@@ -34,9 +34,9 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> MarfConnection<TTrieId, TIn
 }
 
 // static methods
-impl<TTrieId: MarfTrieId> Marf<TTrieId> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> Marf<TTrieId, TIndex> {
     #[cfg(test)]
-    pub fn from_storage_opened<TIndex: TrieIndexProvider>(storage: TrieFileStorage<TTrieId, TIndex>, opened_to: &TTrieId) -> Marf<TTrieId> {
+    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId, TIndex>, opened_to: &TTrieId) -> Marf<TTrieId, TIndex> {
         Marf {
             storage,
             open_chain_tip: Some(WriteChainTip {
@@ -70,7 +70,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     }
 
     // helper method for walking a node's backpr
-    fn walk_backptr<TIndex: TrieIndexProvider>(
+    fn walk_backptr(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         start_node: &TrieNodeType,
         chr: u8,
@@ -115,7 +115,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         }
     }
 
-    fn node_copy_update<TIndex: TrieIndexProvider>(node: &mut TrieNodeType, child_block_id: u32) -> Result<TrieHash, MarfError> {
+    fn node_copy_update(node: &mut TrieNodeType, child_block_id: u32) -> Result<TrieHash, MarfError> {
         let hash = match node {
             TrieNodeType::Leaf(leaf) => Utils::get_leaf_hash(leaf),
             _ => {
@@ -130,7 +130,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Given a node, and the chr of one of its children, go find the last instance of that child in
     /// the MARF and copy it forward.  Update its ptrs to point to its descendents.
     /// s must point to the block hash in which this node lives, to which the child will be copied.
-    fn node_child_copy<TIndex: TrieIndexProvider>(
+    fn node_child_copy(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         node: &TrieNodeType,
         chr: u8,
@@ -171,7 +171,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
 
     /// Copy the root node from the previous Trie to this Trie, updating its ptrs.
     /// s must point to the target Trie
-    fn root_copy<TIndex: TrieIndexProvider>(storage: &mut TrieStorageConnection<TTrieId, TIndex>, prev_block_hash: &TTrieId) -> Result<(), MarfError> {
+    fn root_copy(storage: &mut TrieStorageConnection<TTrieId, TIndex>, prev_block_hash: &TTrieId) -> Result<(), MarfError> {
         let (cur_block_hash, cur_block_id) = storage.get_cur_block_and_id();
         storage.open_block(prev_block_hash)?;
         let prev_block_identifier = storage.get_cur_block_identifier().expect(&format!(
@@ -195,7 +195,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// On Ok, s will point to new_bhh and will be open for reading.
     /// Returns true/false, based on whether or not the trie will be created (this can return false
     /// if we're resuming work on an unconfirmed trie)
-    pub fn extend_trie<TIndex: TrieIndexProvider>(storage: &mut TrieStorageTransaction<TTrieId, TIndex>, new_bhh: &TTrieId) -> Result<(), MarfError> {
+    pub fn extend_trie(storage: &mut TrieStorageTransaction<TTrieId, TIndex>, new_bhh: &TTrieId) -> Result<(), MarfError> {
         if storage.readonly() {
             unreachable!("CORRUPTION: constructed read-only TrieStorageTransaction instance");
         }
@@ -238,7 +238,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Walk down this MARF at the given block hash, doing a copy-on-write for intermediate nodes in this block's Trie from any prior Tries.
     /// s must point to the last filled-in Trie -- i.e. block_hash points to the _new_ Trie that is
     /// being filled in.
-    fn walk_cow<TIndex: TrieIndexProvider>(
+    fn walk_cow(
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -343,7 +343,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Walk down this MARF at the given block hash, resolving backptrs to previous tries.
     /// Return the cursor and the last node visited.
     /// s will point to the block in which the leaf was found, or the last block visited.
-    fn walk<TIndex: TrieIndexProvider>(
+    fn walk(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -434,7 +434,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         return Err(MarfError::CorruptionError("Trie has a cycle".to_string()));
     }
 
-    pub fn format<TIndex: TrieIndexProvider>(
+    pub fn format(
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         first_block_hash: &TTrieId,
     ) -> Result<(), MarfError> {
@@ -451,7 +451,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         storage.write_nodetype(root_ptr, &node_type, hash)
     }
 
-    pub fn get_path<TIndex: TrieIndexProvider>(
+    pub fn get_path(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -502,7 +502,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         }
     }
 
-    fn do_insert_leaf<TIndex: TrieIndexProvider>(
+    fn do_insert_leaf(
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -533,7 +533,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         Ok(())
     }
 
-    pub fn insert_leaf<TIndex: TrieIndexProvider>(
+    pub fn insert_leaf(
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -546,7 +546,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     }
 
     // like insert_leaf, but don't update the merkle skiplist
-    pub fn insert_leaf_in_batch<TIndex: TrieIndexProvider>(
+    pub fn insert_leaf_in_batch(
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         block_hash: &TTrieId,
         path: &TriePath,
@@ -560,7 +560,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     }
 
     /// Instantiate the MARF from a TrieFileStorage instance
-    pub fn from_storage<TIndex: TrieIndexProvider>(storage: TrieFileStorage<TTrieId, TIndex>) -> Marf<TTrieId> {
+    pub fn from_storage(storage: TrieFileStorage<TTrieId, TIndex>) -> Marf<TTrieId, TIndex> {
         Marf {
             storage: storage,
             open_chain_tip: None,
@@ -570,7 +570,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Instantiate the MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
+    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId, TIndex>, MarfError> {
         let file_storage = TrieFileStorage::open(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }
@@ -578,12 +578,12 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Instantiate an unconfirmed MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
+    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId, TIndex>, MarfError> {
         let file_storage = TrieFileStorage::open_unconfirmed(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }
 
-    pub fn get_by_key<TIndex: TrieIndexProvider>(
+    pub fn get_by_key(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         block_hash: &TTrieId,
         key: &str,
@@ -612,7 +612,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         result.map(|option_result| option_result.map(|leaf| leaf.data))
     }
 
-    pub fn get_block_height_miner_tip<TIndex: TrieIndexProvider>(
+    pub fn get_block_height_miner_tip(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         block_hash: &TTrieId,
         current_block_hash: &TTrieId,
@@ -636,7 +636,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         Ok(marf_value.map(u32::from))
     }
 
-    pub fn get_block_height<TIndex: TrieIndexProvider>(
+    pub fn get_block_height(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         block_hash: &TTrieId,
         current_block_hash: &TTrieId,
@@ -644,7 +644,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
         Marf::get_block_height_miner_tip(storage, block_hash, current_block_hash)
     }
 
-    pub fn get_block_at_height<TIndex: TrieIndexProvider>(
+    pub fn get_block_at_height(
         storage: &mut TrieStorageConnection<TTrieId, TIndex>,
         height: u32,
         current_block_hash: &TTrieId,
@@ -699,7 +699,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
 
     /// Insert a batch of key/value pairs.  More efficient than inserting them individually, since
     /// the trie root hash will only be calculated once (which is an O(log B) operation).
-    fn inner_insert_batch<TIndex: TrieIndexProvider>(
+    fn inner_insert_batch(
         conn: &mut TrieStorageTransaction<TTrieId, TIndex>,
         block_hash: &TTrieId,
         keys: &Vec<String>,
@@ -752,8 +752,8 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
 }
 
 // instance methods
-impl<TTrieId: MarfTrieId> Marf<TTrieId> {
-    pub fn begin_tx<'a, TIndex: TrieIndexProvider>(&'a mut self) -> Result<MarfTransaction<'a, TTrieId, TIndex>, MarfError> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> Marf<TTrieId, TIndex> {
+    pub fn begin_tx<'a>(&'a mut self) -> Result<MarfTransaction<'a, TTrieId, TIndex>, MarfError> {
         let storage = self.storage.transaction()?;
         Ok(MarfTransaction {
             storage,
@@ -955,12 +955,12 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
 
     /// Access internal storage
     #[cfg(test)]
-    pub fn borrow_storage_backend<TIndex: TrieIndexProvider>(&mut self) -> TrieStorageConnection<TTrieId, TIndex> {
+    pub fn borrow_storage_backend(&mut self) -> TrieStorageConnection<TTrieId, TIndex> {
         self.storage.connection()
     }
 
     #[cfg(test)]
-    pub fn borrow_storage_transaction<TIndex: TrieIndexProvider>(&mut self) -> TrieStorageTransaction<TTrieId, TIndex> {
+    pub fn borrow_storage_transaction(&mut self) -> TrieStorageTransaction<TTrieId, TIndex> {
         self.storage.transaction().unwrap()
     }
 
@@ -970,7 +970,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     }
 
     /// Reopen storage read-only
-    pub fn reopen_storage_readonly<TIndex: TrieIndexProvider>(&self) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError> {
+    pub fn reopen_storage_readonly(&self) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError> {
         self.storage.reopen_readonly()
     }
 
@@ -979,7 +979,7 @@ impl<TTrieId: MarfTrieId> Marf<TTrieId> {
     /// Returns Err if:
     ///   1) This class is already in the process of writing.
     ///   2) A new underlying SQLite database connection cannot be established.
-    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId>, MarfError> {
+    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId, TIndex>, MarfError> {
         if self.open_chain_tip.is_some() {
             error!(
                 "MARF at {} is already in the process of writing",
