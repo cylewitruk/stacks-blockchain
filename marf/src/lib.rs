@@ -14,15 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::error;
-use std::fmt;
-use std::hash::Hash;
-use std::io;
 
 use sha2::Digest;
 use sha2::Sha512_256 as TrieHasher;
 
-use crate::sqliteutils::Error as db_error;
 use stacks_common::types::chainstate::BurnchainHeaderHash;
 use stacks_common::types::chainstate::SortitionId;
 use stacks_common::types::chainstate::StacksBlockId;
@@ -30,7 +25,6 @@ use stacks_common::types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE};
 
 mod sqliteutils;
 
-pub mod bits;
 pub mod cache;
 pub mod file;
 pub mod marf;
@@ -70,11 +64,6 @@ pub mod test;
 
 
 
-impl MarfTrieId for SortitionId {}
-impl MarfTrieId for StacksBlockId {}
-impl MarfTrieId for BurnchainHeaderHash {}
-#[cfg(test)]
-impl MarfTrieId for BlockHeaderHash {}
 
 pub trait TrieHashExtension {
     fn from_empty_data() -> TrieHash;

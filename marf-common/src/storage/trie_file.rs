@@ -4,6 +4,8 @@ use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}, utils::Utils};
 
+use super::TrieIndexProvider;
+
 /// Mapping between block IDs and trie offsets
 pub type TrieIdOffsets = HashMap<u32, u64>;
 
@@ -19,6 +21,103 @@ pub struct TrieFileRAM {
     fd: Cursor<Vec<u8>>,
     readonly: bool,
     trie_offsets: TrieIdOffsets,
+}
+
+pub trait TrieFileTrait {
+    /// Does the TrieFile exist at the expected path?
+    fn exists(path: &str) -> Result<bool, MarfError>;
+
+    /// Get a copy of the path to this TrieFile.
+    /// If in RAM, then the path will be ":memory:"
+    fn get_path(&self) -> String;
+
+    /// Instantiate a TrieFile, given the associated DB path.
+    /// If path is ':memory:', then it'll be an in-RAM TrieFile.
+    /// Otherwise, it'll be stored as `$db_path.blobs`.
+    fn from_db_path(path: &str, readonly: bool) -> Result<TrieFile, MarfError>;
+
+    /// Append a new trie blob to external storage, and add the offset and length to the trie DB.
+    /// Return the trie ID
+    fn store_trie_blob<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(
+        &mut self,
+        index: &TIndex,
+        bhh: &TTrieId,
+        buffer: &[u8],
+    ) -> Result<u32, MarfError>;
+
+    /// Copy the trie blobs out of a sqlite3 DB into their own file.
+    /// NOTE: this is *not* thread-safe.  Do not call while the DB is being used by another thread.
+    fn export_trie_blobs<TIndex: TrieIndexProvider>(
+        &mut self,
+        index: &TIndex,
+        db_path: &str,
+    ) -> Result<(), MarfError>;
+
+    /// Determine the file offset in the TrieFile where a serialized trie starts.
+    /// The offsets are stored in the given DB, and are cached indefinitely once loaded.
+    fn get_trie_offset<TIndex: TrieIndexProvider>(
+        &mut self, 
+        index: &TIndex, 
+        block_id: u32
+    ) -> Result<u64, MarfError>;
+
+    /// Obtain a TrieHash for a node, given its block ID and pointer
+    fn get_node_hash_bytes<TIndex: TrieIndexProvider>(
+        &mut self,
+        db: &TIndex,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<TrieHash, MarfError>;
+
+    /// Obtain a TrieNodeType and its associated TrieHash for a node, given its block ID and
+    /// pointer
+    fn read_node_type<TIndex: TrieIndexProvider>(
+        &mut self,
+        db: &TIndex,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<(TrieNodeType, TrieHash), MarfError>;
+
+    /// Obtain a TrieNodeType, given its block ID and pointer
+    fn read_node_type_nohash<TIndex: TrieIndexProvider>(
+        &mut self,
+        db: &TIndex,
+        block_id: u32,
+        ptr: &TriePtr,
+    ) -> Result<TrieNodeType, MarfError>;
+
+    /// Obtain a TrieHash for a node, given the node's block's hash (used only in testing)
+    #[cfg(test)]
+    fn get_node_hash_bytes_by_bhh<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(
+        &mut self,
+        db: &TIndex,
+        bhh: &TTrieId,
+        ptr: &TriePtr,
+    ) -> Result<TrieHash, MarfError>;
+
+    /// Get all (root hash, trie hash) pairs for this TrieFile
+    #[cfg(test)]
+    fn read_all_block_hashes_and_roots<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(
+        &mut self,
+        db: &TIndex,
+    ) -> Result<Vec<(TrieHash, TTrieId)>, MarfError>;
+
+    /// Append a serialized trie to the TrieFile.
+    /// Returns the offset at which it was appended.
+    fn append_trie_blob<TIndex: TrieIndexProvider>(
+        &mut self, 
+        db: &TIndex, 
+        buf: &[u8]
+    ) -> Result<u64, MarfError>;
+
+    #[cfg(test)]
+    /// Read a trie blob in its entirety from the blobs file
+    fn read_trie_blob<TIndex: TrieIndexProvider>(
+        &mut self, 
+        index: &TIndex, 
+        block_id: u32
+    ) -> Result<Vec<u8>, MarfError>;
+    
 }
 
 /// This is flat-file storage for a MARF's tries.  All tries are stored as contiguous byte arrays
