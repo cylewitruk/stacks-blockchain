@@ -34,9 +34,7 @@ use crate::{
 
 use stacks_common::util::macros::is_trace;
 
-/// We don't actually instantiate a Trie, but we still need to pass a type parameter for the
-/// storage implementation.
-pub struct Trie {}
+
 
 /// Fetch children hashes and compute the node's hash
 fn get_nodetype_hash<T: MarfTrieId>(

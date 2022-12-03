@@ -1159,20 +1159,7 @@ impl NodeHashReader for TrieSqlCursor<'_> {
     }
 }
 
-enum SqliteConnection<'a> {
-    ConnRef(&'a Connection),
-    Tx(Transaction<'a>),
-}
 
-impl<'a> Deref for SqliteConnection<'a> {
-    type Target = Connection;
-    fn deref(&self) -> &Connection {
-        match self {
-            SqliteConnection::ConnRef(x) => x,
-            SqliteConnection::Tx(tx) => tx,
-        }
-    }
-}
 
 impl<'a, T: MarfTrieId> Deref for TrieStorageTransaction<'a, T> {
     type Target = TrieStorageConnection<'a, T>;
@@ -1294,34 +1281,9 @@ pub struct TrieFileStorage<T: MarfTrieId> {
     pub test_genesis_block: Option<T>,
 }
 
-/// Helper to open a MARF
-fn marf_sqlite_open<P: AsRef<Path>>(
-    db_path: P,
-    open_flags: OpenFlags,
-    foreign_keys: bool,
-) -> Result<Connection, db_error> {
-    let db = sqlite_open(db_path, open_flags, foreign_keys)?;
-    sql_pragma(&db, "mmap_size", &SQLITE_MMAP_SIZE)?;
-    sql_pragma(&db, "page_size", &SQLITE_MARF_PAGE_SIZE)?;
-    Ok(db)
-}
 
-impl<T: MarfTrieId> TrieStorageTransientData<T> {
-    /// Target the transient data to a particular block, and optionally its block ID
-    fn set_block(&mut self, bhh: T, id: Option<u32>) {
-        trace!("set_block({},{:?})", &bhh, &id);
-        self.cur_block_id = id;
-        self.cur_block = bhh;
-    }
 
-    fn clear_block_id(&mut self) {
-        self.cur_block_id = None;
-    }
 
-    fn retarget_block(&mut self, bhh: T) {
-        self.cur_block = bhh;
-    }
-}
 
 impl<T: MarfTrieId> TrieFileStorage<T> {
     pub fn connection<'a>(&'a mut self) -> TrieStorageConnection<'a, T> {

@@ -114,6 +114,7 @@ criterion = "0.3.5"
 stx_genesis = { package = "stx-genesis", path = "./stx-genesis/."}
 clarity = { package = "clarity", features = ["default", "testing"], path = "./clarity/." }
 stacks_common = { package = "stacks-common", features = ["default", "testing"], path = "./stacks-common/." }
+marf_common = { package = "marf-common", path = "./marf-common/." }
 
 [features]
 default = ["developer-mode"]
@@ -138,4 +139,6 @@ members = [
     "stx-genesis",
     "testnet/stacks-node",
     "marf",
+    "marf-common",
+    "macros-common"
 ]

@@ -404,6 +404,7 @@ dependencies = [
  "integer-sqrt",
  "lazy_static",
  "libc",
+ "marf-common",
  "mio 0.6.23",
  "nix",
  "percent-encoding",
@@ -1572,11 +1573,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "macros-common"
+version = "0.0.1"
+dependencies = [
+ "lazy_static",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "slog",
+]
+
+[[package]]
 name = "marf"
 version = "0.0.1"
 dependencies = [
  "rand 0.7.3",
  "regex",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.10.2",
+ "slog",
+ "stacks-common",
+]
+
+[[package]]
+name = "marf-common"
+version = "0.0.1"
+dependencies = [
+ "macros-common",
+ "rand 0.7.3",
  "rusqlite",
  "serde",
  "serde_derive",

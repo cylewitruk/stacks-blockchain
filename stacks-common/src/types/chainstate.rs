@@ -46,7 +46,7 @@ impl Default for TrieHash {
     }
 }
 
-pub const TRIEHASH_ENCODED_SIZE: usize = 32;
+
 
 #[derive(Serialize, Deserialize)]
 pub struct BurnchainHeaderHash(pub [u8; 32]);

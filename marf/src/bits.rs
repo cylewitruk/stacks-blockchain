@@ -98,59 +98,7 @@ pub fn node_id_to_ptr_count(node_id: u8) -> usize {
     }
 }
 
-/// Helper to determine how many bytes a Trie node's child pointers will take to encode.
-pub fn get_ptrs_byte_len(ptrs: &[TriePtr]) -> usize {
-    let node_id_len = 1;
-    node_id_len + TRIEPTR_SIZE * ptrs.len()
-}
 
-/// Read a Trie node's children from a Readable object, and write them to the given ptrs_buf slice.
-/// Returns the Trie node ID detected.
-pub fn ptrs_from_bytes<R: Read>(
-    node_id: u8,
-    r: &mut R,
-    ptrs_buf: &mut [TriePtr],
-) -> Result<u8, Error> {
-    if !check_node_id(node_id) {
-        trace!("Bad node ID {:x}", node_id);
-        return Err(Error::CorruptionError(format!(
-            "Bad node ID: {:x}",
-            node_id
-        )));
-    }
-
-    let num_ptrs = node_id_to_ptr_count(node_id);
-    let mut bytes = vec![0u8; 1 + num_ptrs * TRIEPTR_SIZE];
-    r.read_exact(&mut bytes).map_err(|e| {
-        if e.kind() == ErrorKind::UnexpectedEof {
-            Error::CorruptionError(format!(
-                "Failed to read 1 + {} bytes of ptrs",
-                num_ptrs * TRIEPTR_SIZE
-            ))
-        } else {
-            eprintln!("failed: {:?}", &e);
-            Error::IOError(e)
-        }
-    })?;
-
-    // verify the id is correct
-    let nid = bytes[0];
-    if clear_backptr(nid) != clear_backptr(node_id) {
-        trace!("Bad idbuf: {:x} != {:x}", nid, node_id);
-        return Err(Error::CorruptionError(
-            "Failed to read expected node ID".to_string(),
-        ));
-    }
-
-    let ptr_bytes = &bytes[1..];
-
-    let mut i = 0;
-    while i < num_ptrs {
-        ptrs_buf[i] = TriePtr::from_bytes(&ptr_bytes[i * TRIEPTR_SIZE..(i + 1) * TRIEPTR_SIZE]);
-        i += 1;
-    }
-    Ok(nid)
-}
 
 /// Calculate the hash of a TrieNode, given its childrens' hashes.
 pub fn get_node_hash<M, T: ConsensusSerializable<M> + std::fmt::Debug>(
@@ -402,8 +350,4 @@ pub fn write_nodetype_bytes<F: Write + Seek>(
     Ok(end - start)
 }
 
-pub fn write_path_to_bytes<W: Write>(path: &[u8], w: &mut W) -> Result<(), Error> {
-    w.write_all(&[path.len() as u8])?;
-    w.write_all(path)?;
-    Ok(())
-}
+
