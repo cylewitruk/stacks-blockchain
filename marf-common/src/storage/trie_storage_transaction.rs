@@ -9,7 +9,7 @@ use super::{TrieStorageConnection, TrieIndexProvider};
 ///   open SQLite transaction. Any storage methods which require a transaction
 ///   are defined _only_ for this struct (e.g., the flush methods).
 ///
-pub struct TrieStorageTransaction<'a, TTrieId, TIndex>(TrieStorageConnection<'a, TTrieId, TIndex>) 
+pub struct TrieStorageTransaction<'a, TTrieId, TIndex>(pub TrieStorageConnection<'a, TTrieId, TIndex>) 
     where 
         TTrieId: MarfTrieId, 
         TIndex: TrieIndexProvider;

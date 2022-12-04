@@ -36,7 +36,9 @@ pub struct ProofTriePtr<T> {
     pub back_block: T,
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId> where TIndex: TrieIndexProvider {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId> 
+    where TIndex: TrieIndexProvider 
+{
     pub fn to_hex(&self) -> String {
         let mut marf_proof = vec![];
         self.consensus_serialize(&mut marf_proof)

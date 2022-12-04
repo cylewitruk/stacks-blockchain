@@ -83,7 +83,7 @@ impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
             if let Some(blobs) = blobs.as_mut() {
                 if TrieFile::exists(&db_path)? {
                     // migrate blobs out of the old DB
-                    blobs.export_trie_blobs::<TTrieId>(&self.db, &db_path)?;
+                    blobs.export_trie_blobs::<TTrieId>(&self.index, &db_path)?;
                 }
             }
         }

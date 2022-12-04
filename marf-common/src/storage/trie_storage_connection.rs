@@ -36,6 +36,34 @@ pub struct TrieStorageConnection<'a, TTrieId, TIndex>
     pub test_genesis_block: &'a mut Option<TTrieId>,
 }
 
+impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrieId: MarfTrieId, TIndex: TrieIndexProvider {
+    fn new(
+        db_path: &'a str, 
+        index: &'a TIndex, 
+        blobs: Option<&'a mut TrieFile>,
+        data: &'a mut TrieStorageTransientData<TTrieId>,
+        cache: &'a mut TrieCache<TTrieId>,
+        bench: &'a mut TrieBenchmark,
+        hash_calculation_mode: TrieHashCalculationMode,
+        unconfirmed_block_id: Option<u32>,
+        #[cfg(test)]
+        test_genesis_block: &'a mut Option<TTrieId>
+    ) -> Self {
+        TrieStorageConnection { 
+            db_path, 
+            index, 
+            blobs, 
+            data, 
+            cache, 
+            bench, 
+            hash_calculation_mode, 
+            unconfirmed_block_id,
+            #[cfg(test)]
+            test_genesis_block
+        }
+    }
+}
+
 impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieStorageConnection<'a, TTrieId, TIndex> {
     type TrieId = TTrieId;
 
