@@ -9,18 +9,18 @@ use crate::{
 
 use super::{SqliteUtils, SqliteConnection, SqliteIndexProvider};
 
-pub struct SqliteTrieFileStorage<TTrieId: MarfTrieId> {
+pub struct SqliteTrieFileStorage<'a, TTrieId: MarfTrieId> {
     pub db: Connection,
     pub trie_id: TTrieId,
-    pub index: SqliteIndexProvider
+    pub index: &'a SqliteIndexProvider<'a>
 }
 
-impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> SqliteTrieFileStorage<'a, TTrieId> {
     pub fn sqlite_conn(&self) -> &Connection {
         &self.db
     }
 
-    pub fn sqlite_tx<'a>(&'a mut self) -> Result<Transaction<'a>, SqliteError> {
+    pub fn sqlite_tx(&'a mut self) -> Result<Transaction<'a>, SqliteError> {
         SqliteUtils::tx_begin_immediate(&mut self.db)
     }
 
@@ -137,8 +137,8 @@ impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
     }
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TTrieId, TIndex> for SqliteTrieFileStorage<TTrieId> {
-    fn connection<'a>(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TTrieId, TIndex> for SqliteTrieFileStorage<'a, TTrieId> {
+    fn connection(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex> {
         TrieStorageTransaction::storage::connection {
             //index: SqliteConnection::ConnRef(&self.db),crate::storage::
             index: &SqliteIndexProvider::new(),
@@ -155,7 +155,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TTrieI
         }
     }
 
-    fn transaction<'a>(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId, SqliteIndexProvider>, MarfError> {
+    fn transaction(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId, SqliteIndexProvider>, MarfError> {
         if self.readonly() {
             return Err(MarfError::ReadOnlyError);
         }

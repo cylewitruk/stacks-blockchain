@@ -42,32 +42,7 @@ use crate::sqliteutils::sql_vacuum;
 
 
 
-/// NodeHashReader for TrieFile
-pub struct TrieFileNodeHashReader<'a> {
-    db: &'a Connection,
-    file: &'a mut TrieFile,
-    block_id: u32,
-}
 
-impl<'a> TrieFileNodeHashReader<'a> {
-    pub fn new(
-        db: &'a Connection,
-        file: &'a mut TrieFile,
-        block_id: u32,
-    ) -> TrieFileNodeHashReader<'a> {
-        TrieFileNodeHashReader { db, file, block_id }
-    }
-}
-
-impl NodeHashReader for TrieFileNodeHashReader<'_> {
-    fn read_node_hash_bytes<W: Write>(&mut self, ptr: &TriePtr, w: &mut W) -> Result<(), Error> {
-        let trie_offset = self.file.get_trie_offset(self.db, self.block_id)?;
-        self.file
-            .seek(SeekFrom::Start(trie_offset + (ptr.ptr() as u64)))?;
-        let hash_buff = read_hash_bytes(self.file)?;
-        w.write_all(&hash_buff).map_err(|e| e.into())
-    }
-}
 
 
 

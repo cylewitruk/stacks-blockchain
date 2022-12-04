@@ -199,13 +199,13 @@ impl TrieFile {
     /// Return the trie ID
     pub fn store_trie_blob<T: MarfTrieId>(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         bhh: &T,
         buffer: &[u8],
     ) -> Result<u32, MarfError> {
         let offset = self.append_trie_blob(db, buffer)?;
         test_debug!("Stored trie blob {} to offset {}", bhh, offset);
-        trie_sql::write_external_trie_blob(db, bhh, offset, buffer.len() as u64)
+        db.write_external_trie_blob(bhh, offset, buffer.len() as u64)
     }
 
     /// Read a trie blob in its entirety from the DB
@@ -221,8 +221,8 @@ impl TrieFile {
 
     /// Read a trie blob in its entirety from the blobs file
     #[cfg(test)]
-    pub fn read_trie_blob(&mut self, db: &Connection, block_id: u32) -> Result<Vec<u8>, MarfError> {
-        let (offset, length) = trie_sql::get_external_trie_offset_length(db, block_id)?;
+    pub fn read_trie_blob(&mut self, db: &dyn TrieIndexProvider, block_id: u32) -> Result<Vec<u8>, MarfError> {
+        let (offset, length) = db.get_external_trie_offset_length(block_id)?;
         self.seek(SeekFrom::Start(offset))?;
 
         let mut buf = vec![0u8; length as usize];
@@ -302,14 +302,14 @@ impl TrieFile {
     /// NOTE: this is *not* thread-safe.  Do not call while the DB is being used by another thread.
     pub fn export_trie_blobs<T: MarfTrieId>(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         db_path: &str,
     ) -> Result<(), MarfError> {
         if trie_sql::detect_partial_migration(db)? {
             panic!("PARTIAL MIGRATION DETECTED! This is an irrecoverable error. You will need to restart your node from genesis.");
         }
 
-        let max_block = trie_sql::count_blocks(db)?;
+        let max_block = db.count_blocks()?;
         info!(
             "Migrate {} blocks to external blob storage at {}",
             max_block,
@@ -317,7 +317,7 @@ impl TrieFile {
         );
 
         for block_id in 0..(max_block + 1) {
-            match trie_sql::is_unconfirmed_block(db, block_id) {
+            match db.is_unconfirmed_block(block_id) {
                 Ok(true) => {
                     test_debug!("Skip block_id {} since it's unconfirmed", block_id);
                     continue;
@@ -331,7 +331,7 @@ impl TrieFile {
                     let trie_blob = TrieFile::read_trie_blob_from_db(db, block_id)?;
 
                     // get the block ID
-                    let bhh: T = trie_sql::get_block_hash(db, block_id)?;
+                    let bhh: T = db.get_block_hash(block_id)?;
 
                     // append the blob, replacing the current trie blob
                     if block_id % 1000 == 0 {
@@ -348,8 +348,7 @@ impl TrieFile {
                     self.flush()?;
 
                     test_debug!("Stored trie blob {} to offset {}", bhh, offset);
-                    trie_sql::update_external_trie_blob(
-                        db,
+                    db.update_external_trie_blob(
                         &bhh,
                         offset,
                         trie_blob.len() as u64,
@@ -378,7 +377,7 @@ impl TrieFile {
 impl TrieFile {
     /// Determine the file offset in the TrieFile where a serialized trie starts.
     /// The offsets are stored in the given DB, and are cached indefinitely once loaded.
-    pub fn get_trie_offset(&mut self, db: &Connection, block_id: u32) -> Result<u64, MarfError> {
+    pub fn get_trie_offset(&mut self, db: &dyn TrieIndexProvider, block_id: u32) -> Result<u64, MarfError> {
         let offset_opt = match self {
             TrieFile::RAM(ref ram) => ram.trie_offsets.get(&block_id),
             TrieFile::Disk(ref disk) => disk.trie_offsets.get(&block_id),
@@ -386,7 +385,7 @@ impl TrieFile {
         match offset_opt {
             Some(offset) => Ok(*offset),
             None => {
-                let (offset, _length) = trie_sql::get_external_trie_offset_length(db, block_id)?;
+                let (offset, _length) = db.get_external_trie_offset_length(block_id)?;
                 match self {
                     TrieFile::RAM(ref mut ram) => ram.trie_offsets.insert(block_id, offset),
                     TrieFile::Disk(ref mut disk) => disk.trie_offsets.insert(block_id, offset),
@@ -399,7 +398,7 @@ impl TrieFile {
     /// Obtain a TrieHash for a node, given its block ID and pointer
     pub fn get_node_hash_bytes(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         block_id: u32,
         ptr: &TriePtr,
     ) -> Result<TrieHash, MarfError> {
@@ -413,7 +412,7 @@ impl TrieFile {
     /// pointer
     pub fn read_node_type(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         block_id: u32,
         ptr: &TriePtr,
     ) -> Result<(TrieNodeType, TrieHash), MarfError> {
@@ -425,7 +424,7 @@ impl TrieFile {
     /// Obtain a TrieNodeType, given its block ID and pointer
     pub fn read_node_type_nohash(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         block_id: u32,
         ptr: &TriePtr,
     ) -> Result<TrieNodeType, MarfError> {
@@ -438,11 +437,11 @@ impl TrieFile {
     #[cfg(test)]
     pub fn get_node_hash_bytes_by_bhh<T: MarfTrieId>(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
         bhh: &T,
         ptr: &TriePtr,
     ) -> Result<TrieHash, MarfError> {
-        let (offset, _length) = trie_sql::get_external_trie_offset_length_by_bhh(db, bhh)?;
+        let (offset, _length) = db.get_external_trie_offset_length_by_bhh(bhh)?;
         self.seek(SeekFrom::Start(offset + (ptr.ptr() as u64)))?;
         let hash_buff = Utils::read_hash_bytes(self)?;
         Ok(TrieHash(hash_buff))
@@ -452,7 +451,7 @@ impl TrieFile {
     #[cfg(test)]
     pub fn read_all_block_hashes_and_roots<T: MarfTrieId>(
         &mut self,
-        db: &Connection,
+        db: &dyn TrieIndexProvider,
     ) -> Result<Vec<(TrieHash, T)>, MarfError> {
         use rusqlite::NO_PARAMS;
         use crate::storage::TrieStorageConnection;
@@ -482,8 +481,8 @@ impl TrieFile {
 
     /// Append a serialized trie to the TrieFile.
     /// Returns the offset at which it was appended.
-    pub fn append_trie_blob(&mut self, db: &Connection, buf: &[u8]) -> Result<u64, MarfError> {
-        let offset = trie_sql::get_external_blobs_length(db)?;
+    pub fn append_trie_blob(&mut self, db: &dyn TrieIndexProvider, buf: &[u8]) -> Result<u64, MarfError> {
+        let offset = db.get_external_blobs_length()?;
         test_debug!("Write trie of {} bytes at {}", buf.len(), offset);
         self.seek(SeekFrom::Start(offset))?;
         self.write_all(buf)?;

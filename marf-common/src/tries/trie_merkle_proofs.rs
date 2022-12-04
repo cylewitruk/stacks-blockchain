@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use stacks_common::{types::chainstate::TrieHash, util::hash::to_hex};
 
@@ -17,7 +17,8 @@ pub enum TrieMerkleProofType<T> {
 }
 
 #[derive(Debug)]
-pub struct TrieMerkleProof<T: MarfTrieId>(pub Vec<TrieMerkleProofType<T>>);
+pub struct TrieMerkleProof<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(pub Vec<TrieMerkleProofType<TTrieId>>, PhantomData<TIndex>);
+
 
 /// Merkle Proof Trie Pointers have a different structure
 ///   than the runtime representation --- the proof includes
@@ -36,8 +37,7 @@ pub struct ProofTriePtr<T> {
     pub back_block: T,
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId> 
-    where TIndex: TrieIndexProvider 
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId, TIndex> 
 {
     pub fn to_hex(&self) -> String {
         let mut marf_proof = vec![];
@@ -1119,7 +1119,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId>
         path: &TriePath,
         expected_value: &MarfValue,
         root_block_header: &TTrieId,
-    ) -> Result<TrieMerkleProof<TTrieId>, MarfError> {
+    ) -> Result<TrieMerkleProof<TTrieId, TIndex>, MarfError> {
         // accumulate proofs in reverse order -- each proof will be from an earlier and earlier
         // trie, so we'll reverse them in the end so the proof starts with the latest trie.
         let mut segment_proofs = vec![];
@@ -1228,7 +1228,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId>
             proof.append(&mut shunt_proofs[i]);
         }
 
-        Ok(TrieMerkleProof(proof))
+        Ok(TrieMerkleProof(proof, PhantomData))
     }
 
     /// Make a merkle proof of inclusion from a key/value pair.
@@ -1238,7 +1238,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId>
         key: &String,
         value: &String,
         root_block_header: &TTrieId,
-    ) -> Result<TrieMerkleProof<TTrieId>, MarfError> {
+    ) -> Result<TrieMerkleProof<TTrieId, TIndex>, MarfError> {
         let marf_value = MarfValue::from_value(value);
         let path = TriePath::from_key(key);
         TrieMerkleProof::from_path(storage, &path, &marf_value, root_block_header)
@@ -1249,7 +1249,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId>
         key: &str,
         value: &MarfValue,
         root_block_header: &TTrieId,
-    ) -> Result<TrieMerkleProof<TTrieId>, MarfError> {
+    ) -> Result<TrieMerkleProof<TTrieId, TIndex>, MarfError> {
         let path = TriePath::from_key(key);
         TrieMerkleProof::from_path(storage, &path, value, root_block_header)
     }

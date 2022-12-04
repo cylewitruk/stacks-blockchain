@@ -1,4 +1,4 @@
-#[macro_use(slog_trace, slog_debug, slog_info, slog_error)]
+#[macro_use(slog_trace, slog_debug, slog_info, slog_warn, slog_error)]
 extern crate slog;
 
 #[macro_use(test_debug, debug, info, warn, error, trace, impl_byte_array_message_codec, 

@@ -770,7 +770,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> Marf<TTrieId, TIndex> {
         &mut self,
         block_hash: &TTrieId,
         key: &str,
-    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId>)>, MarfError> {
+    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId, TIndex>)>, MarfError> {
         let mut conn = self.storage.connection();
         let marf_value = match Marf::get_by_key(&mut conn, block_hash, key)? {
             None => return Ok(None),

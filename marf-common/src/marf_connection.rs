@@ -22,7 +22,7 @@ pub trait MarfConnection<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
         &mut self,
         block_hash: &TTrieId,
         key: &str,
-    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId>)>, MarfError> {
+    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId, TIndex>)>, MarfError> {
         self.with_conn(|conn| {
             let marf_value = match Marf::get_by_key(conn, block_hash, key)? {
                 None => return Ok(None),
