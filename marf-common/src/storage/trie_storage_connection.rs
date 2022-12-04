@@ -114,10 +114,6 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieStorag
     }
 }
 
-pub trait TrieStorageConnectionTrait<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
-    
-}
-
 impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieStorageConnection<'a, TTrieId, TIndex> {
     pub fn readonly(&self) -> bool {
         self.data.readonly

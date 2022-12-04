@@ -173,7 +173,7 @@ impl SqliteUtils {
     }
 
     /// Helper to open a MARF
-    fn marf_sqlite_open<P: AsRef<Path>>(
+    pub fn marf_sqlite_open<P: AsRef<Path>>(
         db_path: P,
         open_flags: OpenFlags,
         foreign_keys: bool,

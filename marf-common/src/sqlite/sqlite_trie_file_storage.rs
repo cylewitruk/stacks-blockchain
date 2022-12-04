@@ -140,8 +140,8 @@ impl<'a, TTrieId: MarfTrieId> SqliteTrieFileStorage<'a, TTrieId> {
 impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TTrieId, TIndex> for SqliteTrieFileStorage<'a, TTrieId> {
     fn connection(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex> {
         TrieStorageTransaction::storage::connection {
-            //index: SqliteConnection::ConnRef(&self.db),crate::storage::
-            index: &SqliteIndexProvider::new(),
+            index: SqliteConnection::ConnRef(&self.db),
+            //index: &SqliteIndexProvider{db: SqliteUtils::marf_sqlite_open(&self.db_path, flags, foreign_keys)},
             db_path: &self.db_path,
             data: &mut self.data,
             blobs: self.blobs.as_mut(),
@@ -159,6 +159,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TT
         if self.readonly() {
             return Err(MarfError::ReadOnlyError);
         }
+
         let tx = SqliteUtils::tx_begin_immediate(&mut self.db)?;
 
         Ok(TrieStorageTransaction(TrieStorageConnection {

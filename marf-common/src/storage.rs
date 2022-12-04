@@ -10,7 +10,7 @@ mod trie_file;
 mod trie_ram;
 mod trie_file_node_hash_reader;
 
-pub use trie_storage_connection::{TrieStorageConnection, TrieStorageConnectionTrait};
+pub use trie_storage_connection::TrieStorageConnection;
 pub use trie_storage_transient_data::TrieStorageTransientData;
 pub use trie_file_storage::{TrieFileStorage, TrieFileStorageTrait};
 pub use trie_storage_transaction::TrieStorageTransaction;
