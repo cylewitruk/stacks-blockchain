@@ -137,7 +137,7 @@ impl<'a, TTrieId: MarfTrieId> SqliteTrieFileStorage<'a, TTrieId> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorageTrait<TTrieId, TIndex> for SqliteTrieFileStorage<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieFileStorageTrait<TTrieId, TIndex> for SqliteTrieFileStorage<'a, TTrieId> {
     fn connection(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex> {
         TrieStorageTransaction::storage::connection {
             index: SqliteConnection::ConnRef(&self.db),

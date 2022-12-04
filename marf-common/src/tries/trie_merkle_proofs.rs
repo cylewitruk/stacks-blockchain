@@ -17,7 +17,7 @@ pub enum TrieMerkleProofType<T> {
 }
 
 #[derive(Debug)]
-pub struct TrieMerkleProof<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(pub Vec<TrieMerkleProofType<TTrieId>>, PhantomData<TIndex>);
+pub struct TrieMerkleProof<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>>(pub Vec<TrieMerkleProofType<TTrieId>>, PhantomData<TIndex>);
 
 
 /// Merkle Proof Trie Pointers have a different structure
@@ -37,7 +37,7 @@ pub struct ProofTriePtr<T> {
     pub back_block: T,
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieMerkleProof<TTrieId, TIndex> 
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieMerkleProof<TTrieId, TIndex> 
 {
     pub fn to_hex(&self) -> String {
         let mut marf_proof = vec![];

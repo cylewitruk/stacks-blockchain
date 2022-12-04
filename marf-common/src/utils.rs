@@ -287,7 +287,9 @@ impl Utils {
     }
 
     /// Read the root hash from a TrieFileStorage instance
-    pub fn read_root_hash<TTrieId: MarfTrieId, TIndex: TrieIndexProvider>(s: &mut TrieStorageConnection<TTrieId, TIndex>) -> Result<TrieHash, MarfError> {
+    pub fn read_root_hash<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>>(
+        s: &mut TrieStorageConnection<TTrieId, TIndex>
+    ) -> Result<TrieHash, MarfError> {
         let ptr = s.root_trieptr();
         Ok(s.read_nodeslice_partialeq_hash_bytes(&ptr)?)
     }

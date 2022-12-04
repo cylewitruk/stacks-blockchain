@@ -22,7 +22,7 @@ use super::{TrieStorageTransientData, TrieIndexProvider, TrieFile, UncommittedSt
 pub struct TrieStorageConnection<'a, TTrieId, TIndex>
     where
         TTrieId: MarfTrieId, 
-        TIndex: TrieIndexProvider
+        TIndex: TrieIndexProvider<TTrieId>
 {
     pub db_path: &'a str,
     index: &'a TIndex,
@@ -45,7 +45,7 @@ pub struct TrieStorageConnection<'a, TTrieId, TIndex>
     pub test_genesis_block: &'a mut Option<TTrieId>,
 }
 
-impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrieId: MarfTrieId, TIndex: TrieIndexProvider {
+impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId> {
     fn new(
         db_path: &'a str, 
         index: &'a TIndex, 
@@ -73,7 +73,7 @@ impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrie
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieStorageConnection<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieStorageConnection<'a, TTrieId, TIndex> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
@@ -114,7 +114,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieStorag
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieStorageConnection<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageConnection<'a, TTrieId, TIndex> {
     pub fn readonly(&self) -> bool {
         self.data.readonly
     }

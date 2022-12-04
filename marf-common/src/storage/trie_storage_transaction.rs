@@ -12,22 +12,22 @@ use super::{TrieStorageConnection, TrieIndexProvider};
 pub struct TrieStorageTransaction<'a, TTrieId, TIndex>(pub TrieStorageConnection<'a, TTrieId, TIndex>) 
     where 
         TTrieId: MarfTrieId, 
-        TIndex: TrieIndexProvider;
+        TIndex: TrieIndexProvider<TTrieId>;
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> Deref for TrieStorageTransaction<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> Deref for TrieStorageTransaction<'a, TTrieId, TIndex> {
     type Target = TrieStorageConnection<'a, TTrieId, TIndex>;
     fn deref(&self) -> &TrieStorageConnection<'a, TTrieId, TIndex> {
         &self.0
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> DerefMut for TrieStorageTransaction<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> DerefMut for TrieStorageTransaction<'a, TTrieId, TIndex> {
     fn deref_mut(&mut self) -> &mut TrieStorageConnection<'a, TTrieId, TIndex> {
         &mut self.0
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieStorageTransaction<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieStorageTransaction<'a, TTrieId, TIndex> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {

@@ -6,7 +6,7 @@ use crate::{storage::{TrieStorageConnection, TrieIndexProvider}, MarfTrieId, Mar
 /// This trait defines functions that are defined for both
 ///  MARF structs and MarfTransactions
 ///
-pub trait MarfConnection<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+pub trait MarfConnection<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
     fn with_conn<F, R>(&mut self, exec: F) -> R
     where
         F: FnOnce(&mut TrieStorageConnection<TTrieId, TIndex>) -> R;

@@ -70,7 +70,7 @@ impl<'a> SqliteIndexProvider<'a> {
     }
 }
 
-impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
+impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider<'a> {
     fn new(db_path: &str) -> Self {
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let conn = SqliteUtils::marf_sqlite_open(db_path, open_flags, true);
@@ -79,7 +79,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
     }
 
     /// Retrieves the block hash for the specified block id.
-    fn get_block_hash<T: crate::MarfTrieId>(&self, local_id: u32) -> Result<T, crate::MarfError> {
+    fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, crate::MarfError> {
         let result = self.db
             .query_row(
                 "SELECT block_hash FROM marf_data WHERE block_id = ?",
@@ -94,7 +94,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         })
     }
 
-    fn get_block_identifier<T: crate::MarfTrieId>(&self, bhh: &T) -> Result<u32, crate::MarfError> {
+    fn get_block_identifier(&self, bhh: &TTrieId) -> Result<u32, crate::MarfError> {
         self.db.query_row(
                 "SELECT block_id FROM marf_data WHERE block_hash = ?",
                 &[bhh],
@@ -117,7 +117,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         Ok(TrieHash(hash_buff))
     }
 
-    fn get_node_hash_bytes_by_bhh<TTrieId: crate::MarfTrieId>(&self, bhh: &TTrieId, ptr: &crate::tries::TriePtr) -> Result<stacks_common::types::chainstate::TrieHash, crate::MarfError> {
+    fn get_node_hash_bytes_by_bhh(&self, bhh: &TTrieId, ptr: &crate::tries::TriePtr) -> Result<stacks_common::types::chainstate::TrieHash, crate::MarfError> {
         let row_id: i64 = self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ?",
             &[bhh],
@@ -137,7 +137,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         Ok(TrieHash(hash_buff))
     }
 
-    fn read_all_block_hashes_and_roots<TTrieId: crate::MarfTrieId>(&self) -> Result<Vec<(stacks_common::types::chainstate::TrieHash, TTrieId)>, crate::MarfError> {
+    fn read_all_block_hashes_and_roots(&self) -> Result<Vec<(stacks_common::types::chainstate::TrieHash, TTrieId)>, crate::MarfError> {
         let mut s = self.db.prepare(
             "SELECT block_hash, data FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash",
         )?;
@@ -158,7 +158,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         rows.collect()
     }
 
-    fn get_confirmed_block_identifier<TTrieId: crate::MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
+    fn get_confirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
         self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 0",
             &[bhh],
@@ -168,7 +168,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         .map_err(|e| e.into())
     }
 
-    fn get_unconfirmed_block_identifier<TTrieId: crate::MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
+    fn get_unconfirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
         self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
             &[bhh],
@@ -222,7 +222,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         Ok(res != 0)
     }
 
-    fn update_external_trie_blob<TTrieId: crate::MarfTrieId>(
+    fn update_external_trie_blob(
         &self,
         block_hash: &TTrieId,
         offset: u64,
@@ -242,7 +242,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         Ok((offset, length))
     }
 
-    fn get_external_trie_offset_length_by_bhh<TTrieId: crate::MarfTrieId>(&self, bhh: &TTrieId) -> Result<(u64, u64), crate::MarfError> {
+    fn get_external_trie_offset_length_by_bhh(&self, bhh: &TTrieId) -> Result<(u64, u64), crate::MarfError> {
         let qry = "SELECT external_offset, external_length FROM marf_data WHERE block_hash = ?1";
         let args: &[&dyn ToSql] = &[bhh];
 
@@ -260,7 +260,7 @@ impl<'a> TrieIndexProvider for SqliteIndexProvider<'a> {
         Ok(max_len)
     }
 
-    fn write_external_trie_blob<TTrieId: crate::MarfTrieId>(
+    fn write_external_trie_blob(
         &self,
         block_hash: &TTrieId,
         offset: u64,

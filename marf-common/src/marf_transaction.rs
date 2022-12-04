@@ -2,7 +2,7 @@ use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfTrieId, storage::{TrieStorageTransaction, TrieIndexProvider}, WriteChainTip, MarfError, MarfValue, BLOCK_HEIGHT_TO_HASH_MAPPING_KEY, BLOCK_HASH_TO_HEIGHT_MAPPING_KEY, Marf, OWN_BLOCK_HEIGHT_KEY};
 
-pub struct MarfTransaction<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+pub struct MarfTransaction<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
     storage: TrieStorageTransaction<'a, TTrieId, TIndex>,
     open_chain_tip: &'a mut Option<WriteChainTip<TTrieId>>,
 }
@@ -13,7 +13,7 @@ pub struct MarfTransaction<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
 ///   dropped without calling commit(), the storage transaction is
 ///   aborted
 ///
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider> MarfTransaction<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> MarfTransaction<'a, TTrieId, TIndex> {
     pub fn commit(mut self) -> Result<(), MarfError> {
         if self.storage.readonly() {
             return Err(MarfError::ReadOnlyError);

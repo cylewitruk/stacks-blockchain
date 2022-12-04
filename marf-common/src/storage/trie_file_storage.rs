@@ -5,11 +5,11 @@ use super::{TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider, Tr
 pub struct TrieFileStorage<TTrieId, TIndex>
     where
         TTrieId: MarfTrieId,
-        TIndex: TrieIndexProvider
+        TIndex: TrieIndexProvider<TTrieId>
 {
     pub db_path: String,
 
-    index: Box<TIndex>,
+    index: TIndex,
     blobs: Option<TrieFile>,
     data: TrieStorageTransientData<TTrieId>,
     cache: TrieCache<TTrieId>,
@@ -22,7 +22,7 @@ pub struct TrieFileStorage<TTrieId, TIndex>
     pub test_genesis_block: Option<TTrieId>,
 }
 
-pub trait TrieFileStorageTrait<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
+pub trait TrieFileStorageTrait<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
 
     fn connection<'a>(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex>;
     fn transaction<'a>(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId, TIndex>, MarfError>;
@@ -42,7 +42,7 @@ pub trait TrieFileStorageTrait<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> {
     fn reopen_readonly(&self) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError>;
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorage<TTrieId, TIndex> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieFileStorage<TTrieId, TIndex> {
 
     #[cfg(test)]
     pub fn new_memory(marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError> {
@@ -81,7 +81,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> TrieFileStorage<TTrieId, TI
     }
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider> BlockMap for TrieFileStorage<TTrieId, TIndex> {
+impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieFileStorage<TTrieId, TIndex> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {

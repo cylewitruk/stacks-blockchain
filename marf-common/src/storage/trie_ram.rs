@@ -130,7 +130,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     ///
     /// The purpose of this method is to calculate the trie root hash from a trie that is in the
     /// process of being flushed.
-    fn with_reinstated_data<F, R, TIndex: TrieIndexProvider>(&mut self, storage: &mut TrieStorageTransaction<TTrieId, TIndex>, f: F) -> R
+    fn with_reinstated_data<F, R, TIndex: TrieIndexProvider<TTrieId>>(&mut self, storage: &mut TrieStorageTransaction<TTrieId, TIndex>, f: F) -> R
     where
         F: FnOnce(&mut TrieRAM<TTrieId>, &mut TrieStorageTransaction<TTrieId, TIndex>) -> R,
     {
@@ -245,7 +245,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Calculate the MARF root hash from a trie root hash.
     /// This hashes the trie root hash with a geometric series of prior trie hashes.
-    fn calculate_marf_root_hash<TIndex: TrieIndexProvider>(
+    fn calculate_marf_root_hash<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self,
         storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
         root_hash: &TrieHash,
@@ -266,7 +266,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Calculate and store the MARF root hash, as well as any necessary intermediate nodes.  Do
     /// this only for deferred hashing mode.
-    fn inner_seal_marf<TIndex: TrieIndexProvider>(
+    fn inner_seal_marf<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
     ) -> Result<TrieHash, MarfError> {
@@ -297,7 +297,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Get the trie root hash of the trie ram, and update all nodes' root hashes if we're in
     /// deferred hash mode.  Returns the resulting MARF root.  This is part of the seal operation.
-    fn inner_seal<TIndex: TrieIndexProvider>(
+    fn inner_seal<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
     ) -> Result<TrieHash, MarfError> {
@@ -314,7 +314,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn test_inner_seal<TIndex: TrieIndexProvider>(
+    pub fn test_inner_seal<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
     ) -> Result<TrieHash, MarfError> {
@@ -325,7 +325,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     /// is Deferred, then this updates all the node hashes as well and stores the new node hash.
     /// Otherwise, this is a no-op.
     /// This part of the seal operation.
-    fn inner_seal_dump<TIndex: TrieIndexProvider>(
+    fn inner_seal_dump<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self, 
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>
     ) -> Result<(), MarfError> {
@@ -344,7 +344,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     /// If the given `storage_tx`'s hash calculation mode is set to
     /// `TrieHashCalculationMode::Deferred`, then this method will also store each non-leaf node's
     /// hash.
-    fn calculate_node_hashes<TIndex: TrieIndexProvider>(
+    fn calculate_node_hashes<TIndex: TrieIndexProvider<TTrieId>>(
         &mut self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
         node_ptr: u64,

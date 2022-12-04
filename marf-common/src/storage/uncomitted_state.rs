@@ -98,7 +98,7 @@ impl<TTrieId: MarfTrieId> UncommittedState<TTrieId> {
 
     /// Seal the TrieRAM.  Calculate its root hash and prevent any subsequent writes from
     /// succeeding.
-    fn seal<TIndex: TrieIndexProvider>(
+    fn seal<TIndex: TrieIndexProvider<TTrieId>>(
         self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
     ) -> Result<UncommittedState<TTrieId>, MarfError> {
@@ -115,7 +115,7 @@ impl<TTrieId: MarfTrieId> UncommittedState<TTrieId> {
 
     /// Dump the TrieRAM to the given writeable `f`.  If the TrieRAM is not sealed yet, then seal
     /// it first and then dump it.
-    fn dump<F: Write + Seek, TIndex: TrieIndexProvider>(
+    fn dump<F: Write + Seek, TIndex: TrieIndexProvider<TTrieId>>(
         self,
         storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
         f: &mut F,
