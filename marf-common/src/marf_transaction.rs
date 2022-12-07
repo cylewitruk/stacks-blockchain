@@ -1,9 +1,9 @@
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfTrieId, storage::{TrieStorageTransaction, TrieIndexProvider}, WriteChainTip, MarfError, MarfValue, BLOCK_HEIGHT_TO_HASH_MAPPING_KEY, BLOCK_HASH_TO_HEIGHT_MAPPING_KEY, Marf, OWN_BLOCK_HEIGHT_KEY};
+use crate::{MarfTrieId, storage::{TrieStorageTransaction}, WriteChainTip, MarfError, MarfValue, BLOCK_HEIGHT_TO_HASH_MAPPING_KEY, BLOCK_HASH_TO_HEIGHT_MAPPING_KEY, Marf, OWN_BLOCK_HEIGHT_KEY};
 
-pub struct MarfTransaction<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
-    storage: TrieStorageTransaction<'a, TTrieId, TIndex>,
+pub struct MarfTransaction<'a, TTrieId: MarfTrieId> {
+    storage: TrieStorageTransaction<'a, TTrieId>,
     open_chain_tip: &'a mut Option<WriteChainTip<TTrieId>>,
 }
 
@@ -13,7 +13,10 @@ pub struct MarfTransaction<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TT
 ///   dropped without calling commit(), the storage transaction is
 ///   aborted
 ///
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> MarfTransaction<'a, TTrieId, TIndex> {
+impl<'a, TTrieId> MarfTransaction<'a, TTrieId>
+    where
+        TTrieId: MarfTrieId
+{
     pub fn commit(mut self) -> Result<(), MarfError> {
         if self.storage.readonly() {
             return Err(MarfError::ReadOnlyError);
@@ -95,7 +98,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> MarfTransactio
     /// Reopen this MARF transaction with readonly storage.
     ///   NOTE: any pending operations in the SQLite transaction _will not_
     ///         have materialized in the reopened view.
-    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId, TIndex>, MarfError> {
+    pub fn reopen_readonly(&self) -> Result<Marf<TTrieId>, MarfError> {
         if self.open_chain_tip.is_some() {
             error!(
                 "MARF at {} is already in the process of writing",

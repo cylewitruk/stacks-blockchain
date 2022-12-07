@@ -1,8 +1,9 @@
 use std::io::{Write, Read, ErrorKind, Seek, SeekFrom};
 
+use sha2::Digest;
 use stacks_common::{types::chainstate::TrieHash, util::hash::to_hex};
 
-use crate::{errors::MarfError, BlockMap, tries::{TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, TRIEPTR_SIZE, TRIEPATH_MAX_LEN, TrieLeaf}, storage::{TrieIndexProvider, TrieStorageConnection}, consensus_serialization::ConsensusSerializable, MarfTrieId, TRIEHASH_ENCODED_SIZE};
+use crate::{TrieHasher, errors::MarfError, BlockMap, tries::{TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, TRIEPTR_SIZE, TRIEPATH_MAX_LEN, TrieLeaf, TrieHashCalculationMode}, storage::{TrieIndexProvider, TrieStorageConnection}, consensus_serialization::ConsensusSerializable, MarfTrieId, TRIEHASH_ENCODED_SIZE};
 
 pub struct Utils;
 
@@ -287,11 +288,9 @@ impl Utils {
     }
 
     /// Read the root hash from a TrieFileStorage instance
-    pub fn read_root_hash<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>>(
-        s: &mut TrieStorageConnection<TTrieId, TIndex>
-    ) -> Result<TrieHash, MarfError> {
+    pub fn read_root_hash<T: MarfTrieId>(s: &mut TrieStorageConnection<T>) -> Result<TrieHash, MarfError> {
         let ptr = s.root_trieptr();
-        Ok(s.read_nodeslice_partialeq_hash_bytes(&ptr)?)
+        Ok(s.read_node_hash_bytes(&ptr)?)
     }
 
     /// count the number of allocated children in a list of a node's children pointers.
@@ -431,6 +430,40 @@ impl Utils {
         );
 
         Ok(end - start)
+    }
+
+    /// Fetch children hashes and compute the node's hash
+    pub fn get_nodetype_hash<T: MarfTrieId>(
+        storage: &mut TrieStorageConnection<T>,
+        node: &TrieNodeType,
+    ) -> Result<TrieHash, MarfError> {
+        if storage.hash_calculation_mode == TrieHashCalculationMode::Deferred {
+            trace!(
+                "get_nodetype_hash (deferred): hash {:?} = {:?} + ::children::",
+                &TrieHash([0u8; 32]),
+                node
+            );
+            return Ok(TrieHash([0u8; 32]));
+        }
+
+        let mut hasher = TrieHasher::new();
+
+        node.write_consensus_bytes(storage, &mut hasher)
+            .expect("IO Failure pushing to hasher.");
+
+        storage.write_children_hashes(node, &mut hasher)?;
+
+        let mut res = [0u8; 32];
+        res.copy_from_slice(hasher.finalize().as_slice());
+
+        let ret = TrieHash(res);
+
+        trace!(
+            "get_nodetype_hash: hash {:?} = {:?} + ::children::",
+            &ret,
+            node
+        );
+        Ok(ret)
     }
 
 }

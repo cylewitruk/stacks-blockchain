@@ -1,17 +1,17 @@
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieStorageConnection, TrieIndexProvider}, MarfTrieId, MarfValue, MarfError, Marf, tries::TrieMerkleProof};
+use crate::{storage::TrieStorageConnection, MarfTrieId, MarfValue, MarfError, Marf, tries::TrieMerkleProof};
 
 ///
 /// This trait defines functions that are defined for both
 ///  MARF structs and MarfTransactions
 ///
-pub trait MarfConnection<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
+pub trait MarfConnection<TTrieId: MarfTrieId> {
     fn with_conn<F, R>(&mut self, exec: F) -> R
     where
-        F: FnOnce(&mut TrieStorageConnection<TTrieId, TIndex>) -> R;
+        F: FnOnce(&mut TrieStorageConnection<TTrieId>) -> R;
 
-    fn sqlite_conn(&self) -> &Connection;
+    //fn sqlite_conn(&self) -> &Connection;
 
     /// Resolve a key from the MARF to a MARFValue with respect to the given block height.
     fn get(&mut self, block_hash: &TTrieId, key: &str) -> Result<Option<MarfValue>, MarfError> {
@@ -22,7 +22,7 @@ pub trait MarfConnection<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>
         &mut self,
         block_hash: &TTrieId,
         key: &str,
-    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId, TIndex>)>, MarfError> {
+    ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId>)>, MarfError> {
         self.with_conn(|conn| {
             let marf_value = match Marf::get_by_key(conn, block_hash, key)? {
                 None => return Ok(None),

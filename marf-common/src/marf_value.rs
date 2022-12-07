@@ -1,3 +1,4 @@
+use sha2::Digest;
 use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfTrieId, TRIEHASH_ENCODED_SIZE, MARF_VALUE_ENCODED_SIZE};

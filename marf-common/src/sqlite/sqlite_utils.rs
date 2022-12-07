@@ -1,11 +1,11 @@
 use core::time;
 use std::{thread::sleep, path::Path};
 
-use rusqlite::{Connection, ToSql, Error as SqliteError, Row, Transaction, TransactionBehavior, OpenFlags, NO_PARAMS};
+use rusqlite::{Connection, ToSql, Error as SqliteError, Row, Transaction, TransactionBehavior, OpenFlags, NO_PARAMS, blob::Blob};
 
 use crate::{errors::DBError, MarfTrieId};
 
-use rand::thread_rng;
+use rand::{thread_rng, Rng};
 
 pub type DBConn = rusqlite::Connection;
 pub type DBTx<'a> = rusqlite::Transaction<'a>;
@@ -16,7 +16,7 @@ pub const SQLITE_MMAP_SIZE: i64 = 256 * 1024 * 1024;
 // 32K
 pub const SQLITE_MARF_PAGE_SIZE: i64 = 32768;
 
-pub static SQL_MARF_SCHEMA_VERSION: u64 = 2;
+pub const SQL_MARF_SCHEMA_VERSION: u64 = 2;
 
 static SQL_MARF_DATA_TABLE: &str = "
 CREATE TABLE IF NOT EXISTS marf_data (
@@ -68,6 +68,111 @@ pub trait FromRow<T> {
 
 pub trait FromColumn<T> {
     fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<T, DBError>;
+}
+
+impl FromColumn<u64> for u64 {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<u64, DBError> {
+        let x: i64 = row.get_unwrap(column_name);
+        if x < 0 {
+            return Err(DBError::ParseError);
+        }
+        Ok(x as u64)
+    }
+}
+
+impl FromRow<u64> for u64 {
+    fn from_row<'a>(row: &'a Row) -> Result<u64, DBError> {
+        let x: i64 = row.get_unwrap(0);
+        if x < 0 {
+            return Err(DBError::ParseError);
+        }
+        Ok(x as u64)
+    }
+}
+
+impl FromRow<String> for String {
+    fn from_row<'a>(row: &'a Row) -> Result<String, DBError> {
+        let x: String = row.get_unwrap(0);
+        Ok(x)
+    }
+}
+
+
+
+impl FromColumn<Option<u64>> for u64 {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<Option<u64>, DBError> {
+        let x: Option<i64> = row.get_unwrap(column_name);
+        match x {
+            Some(x) => {
+                if x < 0 {
+                    return Err(DBError::ParseError);
+                }
+                Ok(Some(x as u64))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+impl FromRow<i64> for i64 {
+    fn from_row<'a>(row: &'a Row) -> Result<i64, DBError> {
+        let x: i64 = row.get_unwrap(0);
+        Ok(x)
+    }
+}
+
+impl FromColumn<i64> for i64 {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<i64, DBError> {
+        let x: i64 = row.get_unwrap(column_name);
+        Ok(x)
+    }
+}
+
+/*impl FromColumn<QualifiedContractIdentifier> for QualifiedContractIdentifier {
+    fn from_column<'a>(
+        row: &'a Row,
+        column_name: &str,
+    ) -> Result<QualifiedContractIdentifier, Error> {
+        let value: String = row.get_unwrap(column_name);
+        QualifiedContractIdentifier::parse(&value).map_err(|_| Error::ParseError)
+    }
+}*/
+
+impl FromRow<bool> for bool {
+    fn from_row<'a>(row: &'a Row) -> Result<bool, DBError> {
+        let x: bool = row.get_unwrap(0);
+        Ok(x)
+    }
+}
+
+impl FromRow<(u32, u32)> for (u32, u32) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u32, u32), DBError> {
+        let t1: u32 = row.get_unwrap(0);
+        let t2: u32 = row.get_unwrap(1);
+        Ok((t1, t2))
+    }
+}
+
+impl FromRow<(u64, u32)> for (u64, u32) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u64, u32), DBError> {
+        let t1: i64 = row.get_unwrap(0);
+        if t1 < 0 {
+            return Err(DBError::ParseError)
+        }
+        let t2: u32 = row.get_unwrap(1);
+        Ok((t1 as u64, t2))
+    }
+}
+
+impl FromRow<(u64, u64)> for (u64, u64) {
+    fn from_row<'a>(row: &'a Row) -> Result<(u64, u64), DBError> {
+        let t1: i64 = row.get_unwrap(0);
+        let t2: i64 = row.get_unwrap(1);
+        if t1 < 0 || t2 < 0 {
+            return Err(DBError::ParseError)
+        }
+        Ok((t1 as u64, t2 as u64))
+    }
 }
 
 pub struct SqliteUtils;
@@ -177,7 +282,7 @@ impl SqliteUtils {
         db_path: P,
         open_flags: OpenFlags,
         foreign_keys: bool,
-    ) -> Result<Connection, SqliteError> {
+    ) -> Result<Connection, DBError> {
         let db = Self::sqlite_open(db_path, open_flags, foreign_keys)?;
         Self::sql_pragma(&db, "mmap_size", &SQLITE_MMAP_SIZE)?;
         Self::sql_pragma(&db, "page_size", &SQLITE_MARF_PAGE_SIZE)?;
@@ -370,5 +475,24 @@ impl SqliteUtils {
             Ok(None) => Ok("<unknown>".to_string()),
             Err(e) => Err(DBError::SqliteError(e)),
         }
+    }
+
+    /// Run a VACUUM command
+    pub fn sql_vacuum(conn: &Connection) -> Result<(), DBError> {
+        conn.execute("VACUUM", NO_PARAMS)
+            .map_err(DBError::SqliteError)
+            .and_then(|_| Ok(()))
+    }
+
+    /// Open a trie blob. Returns a Blob<'a> readable handle to it.
+    pub fn open_trie_blob_readonly<'a>(conn: &'a Connection, block_id: u32) -> Result<Blob<'a>, DBError> {
+        let blob = conn.blob_open(
+            rusqlite::DatabaseName::Main,
+            "marf_data",
+            "data",
+            block_id.into(),
+            false,
+        )?;
+        Ok(blob)
     }
 }

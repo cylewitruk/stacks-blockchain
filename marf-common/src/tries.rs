@@ -5,6 +5,7 @@ pub mod trie_merkle_proofs;
 pub mod trie_path;
 pub mod trie_ptr;
 pub mod nodes;
+mod trie;
 
 pub use {
     trie_cursor::TrieCursor,
@@ -12,10 +13,6 @@ pub use {
     trie_leaf::TrieLeaf,
     trie_merkle_proofs::{ProofTrieNode, ProofTriePtr, TrieMerkleProof},
     trie_path::{TriePath, TRIEPATH_MAX_LEN},
-    trie_ptr::{TriePtr, TRIEPTR_SIZE}
+    trie_ptr::{TriePtr, TRIEPTR_SIZE},
+    trie::Trie
 };
-
-
-/// We don't actually instantiate a Trie, but we still need to pass a type parameter for the
-/// storage implementation.
-pub struct Trie {}

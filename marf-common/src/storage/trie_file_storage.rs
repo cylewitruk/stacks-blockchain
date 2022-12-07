@@ -1,20 +1,22 @@
-use crate::{MarfTrieId, MarfError, storage::TrieStorageTransientData, BlockMap, marf_open_opts::MarfOpenOpts, TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark};
+use crate::{
+    MarfTrieId, MarfError, storage::TrieStorageTransientData, BlockMap, marf_open_opts::MarfOpenOpts, 
+    TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark
+};
 
 use super::{TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider, TrieFile};
 
-pub struct TrieFileStorage<TTrieId, TIndex>
+pub struct TrieFileStorage<'a, TTrieId>
     where
-        TTrieId: MarfTrieId,
-        TIndex: TrieIndexProvider<TTrieId>
+        TTrieId: MarfTrieId
 {
     pub db_path: String,
 
-    index: TIndex,
-    blobs: Option<TrieFile>,
-    data: TrieStorageTransientData<TTrieId>,
-    cache: TrieCache<TTrieId>,
-    bench: TrieBenchmark,
-    hash_calculation_mode: TrieHashCalculationMode,
+    pub index: &'a dyn TrieFileStorageTrait<'a, TTrieId>,
+    pub blobs: Option<TrieFile>,
+    pub data: TrieStorageTransientData<TTrieId>,
+    pub cache: TrieCache<TTrieId>,
+    pub bench: TrieBenchmark,
+    pub hash_calculation_mode: TrieHashCalculationMode,
 
     // used in testing in order to short-circuit block-height lookups
     //   when the trie struct is tested outside of marf.rs usage
@@ -22,40 +24,31 @@ pub struct TrieFileStorage<TTrieId, TIndex>
     pub test_genesis_block: Option<TTrieId>,
 }
 
-pub trait TrieFileStorageTrait<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
+pub trait TrieFileStorageTrait<'a, TTrieId: MarfTrieId> {
 
-    fn connection<'a>(&'a mut self) -> TrieStorageConnection<'a, TTrieId, TIndex>;
-    fn transaction<'a>(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId, TIndex>, MarfError>;
-    fn open(db_path: &str, marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError>;
-    fn open_readonly(
-        db_path: &str,
-        marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError>;
-    fn open_unconfirmed(
-        db_path: &str,
-        marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError>;
+    fn connection(&'a mut self) -> TrieStorageConnection<'a, TTrieId>;
+    fn transaction(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId>, MarfError>;
+    fn open(&self, db_path: &str, marf_opts: MarfOpenOpts) -> Result<&dyn TrieFileStorageTrait<TTrieId>, MarfError>;
+    fn open_readonly(&self, db_path: &str, marf_opts: MarfOpenOpts) -> Result<&dyn TrieFileStorageTrait<TTrieId>, MarfError>;
+    fn open_unconfirmed(&self, db_path: &str, marf_opts: MarfOpenOpts) -> Result<&dyn TrieFileStorageTrait<TTrieId>, MarfError>;
 
     /// Returns a new TrieFileStorage in read-only mode.
     ///
     /// Returns Err if the underlying SQLite database connection cannot be created.
-    fn reopen_readonly(&self) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError>;
-}
+    fn reopen_readonly(&self) -> Result<&dyn TrieFileStorageTrait<TTrieId>, MarfError>;
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieFileStorage<TTrieId, TIndex> {
+    fn is_readonly(&self) -> bool;
+    fn index(&self) -> &dyn TrieIndexProvider<TTrieId>;
+    fn blobs(&self) -> Option<TrieFile>;
+    fn data(&self) -> TrieStorageTransientData<TTrieId>;
+    fn cache(&self) -> TrieCache<TTrieId>;
+    fn hash_calculation_mode(&self) -> TrieHashCalculationMode;
 
     #[cfg(test)]
-    pub fn new_memory(marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError> {
-        TrieFileStorage::open(":memory:", marf_opts)
-    }
+    fn test_genesis_block(&self) -> Option<TTrieId>;
+}
 
-    pub fn open_readonly(
-        db_path: &str,
-        marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId, TIndex>, MarfError> {
-        
-    }
-
+impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     pub fn readonly(&self) -> bool {
         self.data.readonly
     }
@@ -81,7 +74,7 @@ impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieFileStorage<TT
     }
 }
 
-impl<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieFileStorage<TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId> BlockMap for TrieFileStorage<'a, TTrieId> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {

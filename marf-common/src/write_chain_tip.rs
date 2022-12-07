@@ -1,5 +1,5 @@
 #[derive(Clone)]
 pub struct WriteChainTip<T> {
-    block_hash: T,
-    height: u32,
+    pub block_hash: T,
+    pub height: u32,
 }

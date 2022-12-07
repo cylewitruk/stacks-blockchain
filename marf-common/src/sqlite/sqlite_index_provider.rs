@@ -1,4 +1,4 @@
-use rusqlite::{Connection, OpenFlags, NO_PARAMS, ToSql};
+use rusqlite::{Connection, OpenFlags, NO_PARAMS, ToSql, OptionalExtension, Transaction};
 use stacks_common::types::chainstate::TrieHash;
 
 use crate::{storage::{TrieIndexProvider, TrieStorageConnection}, MarfError, utils::Utils, MarfTrieId};
@@ -6,10 +6,19 @@ use crate::{storage::{TrieIndexProvider, TrieStorageConnection}, MarfError, util
 use super::SqliteUtils;
 
 pub struct SqliteIndexProvider<'a> {
-    db: &'a Connection
+    db: &'a Connection,
+    tx: &'a mut Option<Transaction<'a>>
 }
 
 impl<'a> SqliteIndexProvider<'a> {
+    pub fn new(db: &Connection) -> Self {
+        SqliteIndexProvider { db, tx: &mut None }
+    }
+
+    pub fn has_transaction(&self) -> bool {
+        !self.tx.is_none()
+    }
+
     /// Write the offset/length of a trie blob that was stored to an external file.
     /// Do this only once the trie is actually stored, since only the presence of this information is
     /// what guarantees that the blob is persisted.
@@ -28,7 +37,7 @@ impl<'a> SqliteIndexProvider<'a> {
             let args: &[&dyn ToSql] = &[
                 block_hash,
                 &empty_blob,
-                &SqliteUtils::u64_to_sql(0),
+                &0,
                 &SqliteUtils::u64_to_sql(offset)?,
                 &SqliteUtils::u64_to_sql(length)?,
                 &block_id,
@@ -48,7 +57,7 @@ impl<'a> SqliteIndexProvider<'a> {
             let args: &[&dyn ToSql] = &[
                 block_hash,
                 &empty_blob,
-                &SqliteUtils::u64_to_sql(0),
+                &0,
                 &SqliteUtils::u64_to_sql(offset)?,
                 &SqliteUtils::u64_to_sql(length)?,
             ];
@@ -71,13 +80,6 @@ impl<'a> SqliteIndexProvider<'a> {
 }
 
 impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider<'a> {
-    fn new(db_path: &str) -> Self {
-        let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
-        let conn = SqliteUtils::marf_sqlite_open(db_path, open_flags, true);
-
-        SqliteIndexProvider { db: conn }
-    }
-
     /// Retrieves the block hash for the specified block id.
     fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, crate::MarfError> {
         let result = self.db

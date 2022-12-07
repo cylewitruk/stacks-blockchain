@@ -25,6 +25,7 @@ mod diagnostics;
 
 pub mod errors;
 pub mod sqlite;
+mod trie_hash_extension;
 
 pub use errors::{MarfError, CursorError};
 pub use block_map::BlockMap;
@@ -38,6 +39,7 @@ pub use {
     marf_connection::MarfConnection,
     tries::Trie,
     cache::TrieCache,
+    trie_hash_extension::TrieHashExtension
 };
 
 use sha2::Sha512_256 as TrieHasher;

@@ -46,88 +46,8 @@ use crate::sqliteutils::sql_vacuum;
 
 
 
-/// Boilerplate Write implementation for TrieFileDisk.  Plumbs through to the inner fd.
-impl Write for TrieFileDisk {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.fd.write(buf)
-    }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.fd.flush()
-    }
-}
 
-/// Boilerplate Write implementation for TrieFileRAM.  Plumbs through to the inner fd.
-impl Write for TrieFileRAM {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.fd.write(buf)
-    }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.fd.flush()
-    }
-}
 
-/// Boilerplate Write implementation for TrieFile enum.  Plumbs through to the inner struct.
-impl Write for TrieFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            TrieFile::RAM(ref mut ram) => ram.write(buf),
-            TrieFile::Disk(ref mut disk) => disk.write(buf),
-        }
-    }
 
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            TrieFile::RAM(ref mut ram) => ram.flush(),
-            TrieFile::Disk(ref mut disk) => disk.flush(),
-        }
-    }
-}
-
-/// Boilerplate Read implementation for TrieFileDisk.  Plumbs through to the inner fd.
-impl Read for TrieFileDisk {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.fd.read(buf)
-    }
-}
-
-/// Boilerplate Read implementation for TrieFileRAM.  Plumbs through to the inner fd.
-impl Read for TrieFileRAM {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.fd.read(buf)
-    }
-}
-
-/// Boilerplate Read implementation for TrieFile enum.  Plumbs through to the inner struct.
-impl Read for TrieFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            TrieFile::RAM(ref mut ram) => ram.read(buf),
-            TrieFile::Disk(ref mut disk) => disk.read(buf),
-        }
-    }
-}
-
-/// Boilerplate Seek implementation for TrieFileDisk.  Plumbs through to the inner fd
-impl Seek for TrieFileDisk {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.fd.seek(pos)
-    }
-}
-
-/// Boilerplate Seek implementation for TrieFileDisk.  Plumbs through to the inner fd
-impl Seek for TrieFileRAM {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.fd.seek(pos)
-    }
-}
-
-impl Seek for TrieFile {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        match self {
-            TrieFile::RAM(ref mut ram) => ram.seek(pos),
-            TrieFile::Disk(ref mut disk) => disk.seek(pos),
-        }
-    }
-}

@@ -1,5 +1,7 @@
 use stacks_common::types::chainstate::TrieHash;
 
+use crate::TrieHashExtension;
+
 /// A path in the Trie is the SHA2-512/256 hash of its key.
 pub struct TriePath([u8; 32]);
 impl_array_newtype!(TriePath, u8, 32);

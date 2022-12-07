@@ -100,7 +100,7 @@ impl<TTrieId: MarfTrieId> UncommittedState<TTrieId> {
     /// succeeding.
     fn seal<TIndex: TrieIndexProvider<TTrieId>>(
         self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
     ) -> Result<UncommittedState<TTrieId>, MarfError> {
         match self {
             UncommittedState::RW(mut trie_ram) => {
@@ -117,7 +117,7 @@ impl<TTrieId: MarfTrieId> UncommittedState<TTrieId> {
     /// it first and then dump it.
     fn dump<F: Write + Seek, TIndex: TrieIndexProvider<TTrieId>>(
         self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
         f: &mut F,
         bhh: &TTrieId,
     ) -> Result<(), MarfError> {

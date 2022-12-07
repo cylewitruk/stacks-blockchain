@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{MarfError, BlockMap, utils::Utils, tries::nodes::TrieNode};
+use crate::{MarfError, BlockMap, utils::Utils, tries::{nodes::TrieNode, ProofTrieNode}, MarfTrieId};
 
 /// Trait for types that can serialize to consensus bytes
 /// This is implemented by `TrieNode`s and `ProofTrieNode`s
@@ -30,5 +30,20 @@ impl<TTrieId: TrieNode, TBlockMap: BlockMap> ConsensusSerializable<TBlockMap> fo
         w.write_all(&[self.id()])?;
         Utils::ptrs_consensus_hash(self.ptrs(), map, w)?;
         Utils::write_path_to_bytes(self.path().as_slice(), w)
+    }
+}
+
+impl<T: MarfTrieId> ConsensusSerializable<()> for ProofTrieNode<T> {
+    fn write_consensus_bytes<W: Write>(
+        &self,
+        _additional_data: &mut (),
+        w: &mut W,
+    ) -> Result<(), MarfError> {
+        w.write_all(&[self.id])?;
+        for ptr in self.ptrs.iter() {
+            w.write_all(&[ptr.id, ptr.chr])?;
+            w.write_all(ptr.back_block.as_bytes())?;
+        }
+        Utils::write_path_to_bytes(&self.path, w)
     }
 }

@@ -3,8 +3,6 @@ use stacks_common::types::chainstate::TrieHash;
 use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}};
 
 pub trait TrieIndexProvider<TTrieId: MarfTrieId> {
-    fn new(&self) -> Self;
-
     /// Retrieves the block hash for the specified block identifier from the underlying store.
     fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, MarfError>;
 

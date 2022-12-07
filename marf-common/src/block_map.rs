@@ -13,6 +13,9 @@ pub trait BlockMap {
 }
 
 #[cfg(test)]
+impl MarfTrieId for BlockHeaderHash {}
+
+#[cfg(test)]
 impl BlockMap for () {
     type TrieId = BlockHeaderHash;
     fn get_block_hash(&self, _id: u32) -> Result<BlockHeaderHash, MarfError> {

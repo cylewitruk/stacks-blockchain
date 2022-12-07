@@ -1,8 +1,13 @@
-use std::{io::{Write, Seek, SeekFrom, Read}, collections::VecDeque};
+use std::{io::{Write, Seek, SeekFrom, Read}, collections::VecDeque, ops::Deref};
 
+use sha2::Digest;
 use stacks_common::types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE};
 
-use crate::{tries::{nodes::{TrieNodeType, TrieNodeID}, TrieHashCalculationMode, TriePtr}, MarfTrieId, storage::UncommittedState, MarfError, Trie, utils::Utils};
+use crate::{
+    tries::{nodes::{TrieNodeType, TrieNodeID}, TrieHashCalculationMode, TriePtr}, 
+    MarfTrieId, MarfError, Trie, utils::Utils, TrieHashExtension, BlockMap,
+    storage::UncommittedState, 
+};
 
 use super::{TrieStorageTransaction, node_hash_reader::NodeHashReader, TrieIndexProvider};
 
@@ -11,7 +16,7 @@ use super::{TrieStorageTransaction, node_hash_reader::NodeHashReader, TrieIndexP
 #[derive(Clone)]
 pub struct TrieRAM<T: MarfTrieId> {
     data: Vec<(TrieNodeType, TrieHash)>,
-    block_header: T,
+    pub block_header: T,
     readonly: bool,
 
     read_count: u64,
@@ -130,9 +135,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     ///
     /// The purpose of this method is to calculate the trie root hash from a trie that is in the
     /// process of being flushed.
-    fn with_reinstated_data<F, R, TIndex: TrieIndexProvider<TTrieId>>(&mut self, storage: &mut TrieStorageTransaction<TTrieId, TIndex>, f: F) -> R
+    fn with_reinstated_data<F, R>(&mut self, storage: &mut TrieStorageTransaction<TTrieId>, f: F) -> R
     where
-        F: FnOnce(&mut TrieRAM<TTrieId>, &mut TrieStorageTransaction<TTrieId, TIndex>) -> R,
+        F: FnOnce(&mut TrieRAM<TTrieId>, &mut TrieStorageTransaction<TTrieId>) -> R,
     {
         // do NOT call this function within another instance of this function.  Only tears and
         // misery would result.
@@ -245,9 +250,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Calculate the MARF root hash from a trie root hash.
     /// This hashes the trie root hash with a geometric series of prior trie hashes.
-    fn calculate_marf_root_hash<TIndex: TrieIndexProvider<TTrieId>>(
+    fn calculate_marf_root_hash(
         &mut self,
-        storage: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage: &mut TrieStorageTransaction<TTrieId>,
         root_hash: &TrieHash,
     ) -> TrieHash {
         let (cur_block_hash, cur_block_id) = storage.get_cur_block_and_id();
@@ -266,9 +271,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Calculate and store the MARF root hash, as well as any necessary intermediate nodes.  Do
     /// this only for deferred hashing mode.
-    fn inner_seal_marf<TIndex: TrieIndexProvider<TTrieId>>(
+    fn inner_seal_marf(
         &mut self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
     ) -> Result<TrieHash, MarfError> {
         // find trie root hash
         debug!("Calculate trie root hash");
@@ -297,9 +302,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Get the trie root hash of the trie ram, and update all nodes' root hashes if we're in
     /// deferred hash mode.  Returns the resulting MARF root.  This is part of the seal operation.
-    fn inner_seal<TIndex: TrieIndexProvider<TTrieId>>(
+    pub fn inner_seal(
         &mut self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
     ) -> Result<TrieHash, MarfError> {
         if TrieHashCalculationMode::Deferred == storage_tx.deref().hash_calculation_mode
             || TrieHashCalculationMode::All == storage_tx.deref().hash_calculation_mode
@@ -314,9 +319,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn test_inner_seal<TIndex: TrieIndexProvider<TTrieId>>(
+    pub fn test_inner_seal(
         &mut self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
     ) -> Result<TrieHash, MarfError> {
         self.inner_seal(storage_tx)
     }
@@ -325,9 +330,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     /// is Deferred, then this updates all the node hashes as well and stores the new node hash.
     /// Otherwise, this is a no-op.
     /// This part of the seal operation.
-    fn inner_seal_dump<TIndex: TrieIndexProvider<TTrieId>>(
+    pub fn inner_seal_dump(
         &mut self, 
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>
+        storage_tx: &mut TrieStorageTransaction<TTrieId>
     ) -> Result<(), MarfError> {
         if TrieHashCalculationMode::Deferred == storage_tx.deref().hash_calculation_mode
             || TrieHashCalculationMode::All == storage_tx.deref().hash_calculation_mode
@@ -344,9 +349,9 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     /// If the given `storage_tx`'s hash calculation mode is set to
     /// `TrieHashCalculationMode::Deferred`, then this method will also store each non-leaf node's
     /// hash.
-    fn calculate_node_hashes<TIndex: TrieIndexProvider<TTrieId>>(
+    fn calculate_node_hashes(
         &mut self,
-        storage_tx: &mut TrieStorageTransaction<TTrieId, TIndex>,
+        storage_tx: &mut TrieStorageTransaction<TTrieId>,
         node_ptr: u64,
     ) -> Result<TrieHash, MarfError> {
         let start_time = storage_tx.bench.write_children_hashes_start();
@@ -459,7 +464,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
 
     /// Walk through the buffered TrieNodes and dump them to f.
     /// This consumes this TrieRAM instance.
-    fn dump_consume<F: Write + Seek>(mut self, f: &mut F) -> Result<u64, MarfError> {
+    pub fn dump_consume<F: Write + Seek>(mut self, f: &mut F) -> Result<u64, MarfError> {
         // step 1: write out each node in breadth-first order to get their ptr offsets
         let mut frontier: VecDeque<u32> = VecDeque::new();
 
@@ -604,7 +609,7 @@ impl<TTrieId: MarfTrieId> TrieRAM<TTrieId> {
     }
 
     /// Hint as to how many entries to allocate for the inner Vec when creating a TrieRAM
-    fn size_hint(&self) -> usize {
+    pub fn size_hint(&self) -> usize {
         self.write_count as usize
         // the size hint is used for a capacity guess on the data vec, which is _nodes_
         //  NOT bytes. this led to enormous over-allocations

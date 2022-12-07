@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use stacks_common::{types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE}, util::hash::to_hex};
 
-use crate::{MarfTrieId, BlockMap, MarfError, TrieCache, tries::{TrieHashCalculationMode, TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode}}, diagnostics::TrieBenchmark, utils::Utils, TRIEHASH_ENCODED_SIZE, storage::TrieFileNodeHashReader};
+use crate::{MarfTrieId, BlockMap, MarfError, TrieCache, tries::{TrieHashCalculationMode, TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode}}, diagnostics::TrieBenchmark, utils::Utils, TRIEHASH_ENCODED_SIZE, storage::TrieFileNodeHashReader, TrieHashExtension, ClarityMarfTrieId};
 
 use super::{TrieStorageTransientData, TrieIndexProvider, TrieFile, UncommittedState, node_hash_reader::NodeHashReader};
 
@@ -19,17 +19,15 @@ use super::{TrieStorageTransientData, TrieIndexProvider, TrieFile, UncommittedSt
 ///  This is the main interface to the storage methods, and defines most
 ///    of the storage functionality.
 ///
-pub struct TrieStorageConnection<'a, TTrieId, TIndex>
-    where
-        TTrieId: MarfTrieId, 
-        TIndex: TrieIndexProvider<TTrieId>
+pub struct TrieStorageConnection<'a, TTrieId>
+    where TTrieId: MarfTrieId
 {
     pub db_path: &'a str,
-    index: &'a TIndex,
+    index: &'a dyn TrieIndexProvider<TTrieId>,
     blobs: Option<&'a mut TrieFile>,
-    data: &'a mut TrieStorageTransientData<TTrieId>,
+    pub data: &'a mut TrieStorageTransientData<TTrieId>,
     cache: &'a mut TrieCache<TTrieId>,
-    bench: &'a mut TrieBenchmark,
+    pub bench: &'a mut TrieBenchmark,
     pub hash_calculation_mode: TrieHashCalculationMode,
 
     /// row ID of a trie that represents unconfirmed state (i.e. trie state that will never become
@@ -45,10 +43,14 @@ pub struct TrieStorageConnection<'a, TTrieId, TIndex>
     pub test_genesis_block: &'a mut Option<TTrieId>,
 }
 
-impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId> {
+impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId> 
+    where 
+        TTrieId: MarfTrieId, 
+        TIndex: TrieIndexProvider<TTrieId> 
+{
     fn new(
         db_path: &'a str, 
-        index: &'a TIndex, 
+        index: &'a mut TIndex, 
         blobs: Option<&'a mut TrieFile>,
         data: &'a mut TrieStorageTransientData<TTrieId>,
         cache: &'a mut TrieCache<TTrieId>,
@@ -73,7 +75,7 @@ impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId, TIndex> where TTrie
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieStorageConnection<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieStorageConnection<'a, TTrieId> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
@@ -114,7 +116,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for T
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageConnection<'a, TTrieId, TIndex> {
+impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageConnection<'a, TTrieId> {
     pub fn readonly(&self) -> bool {
         self.data.readonly
     }
@@ -203,7 +205,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
         );
         if let Some(blobs) = self.blobs.as_mut() {
             // stored in a blobs file
-            blobs.get_node_hash_bytes_by_bhh(&self.db, bhh, &root_hash_ptr)
+            blobs.get_node_hash_bytes_by_bhh(self.index, bhh, &root_hash_ptr)
         } else {
             // stored to DB
             self.index.get_node_hash_bytes_by_bhh(bhh, &root_hash_ptr)
@@ -214,7 +216,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
     fn inner_read_persisted_root_to_blocks(&mut self) -> Result<HashMap<TrieHash, TTrieId>, MarfError> {
         let ret = match self.blobs.as_mut() {
             Some(blobs) => {
-                HashMap::from_iter(blobs.read_all_block_hashes_and_roots(&self.db)?.into_iter())
+                HashMap::from_iter(blobs.read_all_block_hashes_and_roots(self.index)?.into_iter())
             }
             None => {
                 HashMap::from_iter(self.index.read_all_block_hashes_and_roots()?.into_iter())
@@ -347,7 +349,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
             }
         }
 
-        TrieStorageConnection::<TTrieId>::root_ptr_disk()
+        TrieStorageConnection::<TTrieId, TIndex>::root_ptr_disk()
     }
 
     /// Get a TriePtr to the currently-open block's trie's root node.
@@ -380,7 +382,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
 
     /// Open a trie's block, identified by `bhh`.  Updates the internal state to point to it, so
     /// that all node reads will occur relative to it.
-    fn open_block(&mut self, bhh: &TTrieId) -> Result<(), MarfError> {
+    pub fn open_block(&mut self, bhh: &TTrieId) -> Result<(), MarfError> {
         trace!(
             "open_block({}) (unconfirmed={:?},{})",
             bhh,
@@ -530,8 +532,8 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
                 error!("Failed to get cur block as hash reader");
                 MarfError::NotFoundError
             })?;
-            let mut cursor = TrieFileNodeHashReader::new(&self.db, blobs, block_id);
-            let res = TrieStorageConnection::<TTrieId, TIndex>::inner_write_children_hashes(
+            let mut cursor = TrieFileNodeHashReader::new(self.index, blobs, block_id);
+            let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
                 node,
@@ -550,7 +552,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
                     MarfError::NotFoundError
                 })?,
             };
-            let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
+            let res = TrieStorageConnection::<TTrieId, TIndex>::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
                 node,
@@ -636,7 +638,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
             return self.index.get_node_hash_bytes(block_id, ptr);
         }
         let node_hash = match self.blobs.as_mut() {
-            Some(blobs) => blobs.get_node_hash_bytes(&self.db, block_id, ptr),
+            Some(blobs) => blobs.get_node_hash_bytes(self.index, block_id, ptr),
             None => self.index.get_node_hash_bytes(block_id, ptr),
         }?;
         Ok(node_hash)
@@ -715,10 +717,10 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
         let (node_inst, node_hash) = match self.blobs.as_mut() {
             Some(blobs) => {
                 if read_hash {
-                    blobs.read_node_type(&self.db, block_id, &ptr)?
+                    blobs.read_node_type(self.index, block_id, &ptr)?
                 } else {
                     blobs
-                        .read_node_type_nohash(&self.db, block_id, &ptr)
+                        .read_node_type_nohash(self.index, block_id, &ptr)
                         .map(|node| (node, TrieHash([0u8; TRIEHASH_ENCODED_SIZE])))?
                 }
             }

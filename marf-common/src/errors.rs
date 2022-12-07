@@ -63,13 +63,19 @@ impl From<io::Error> for MarfError {
     }
 }
 
-impl From<SqliteError> for MarfError {
-    fn from(e: SqliteError) -> MarfError {
+impl From<DBError> for MarfError {
+    fn from(e: DBError) -> MarfError {
         match e {
-            MarfError::SqliteError(se) => MarfError::SQLError(se),
-            MarfError::NotFoundError => MarfError::NotFoundError,
+            DBError::SqliteError(se) => MarfError::SQLError(se),
+            DBError::NotFoundError => MarfError::NotFoundError,
             _ => MarfError::CorruptionError(format!("{}", &e)),
         }
+    }
+}
+
+impl From<SqliteError> for MarfError {
+    fn from(e: SqliteError) -> MarfError {
+        MarfError::SQLError(e)
     }
 }
 
