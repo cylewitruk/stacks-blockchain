@@ -11,7 +11,7 @@ pub struct TrieFileStorage<'a, TTrieId>
 {
     pub db_path: String,
 
-    pub index: &'a dyn TrieFileStorageTrait<'a, TTrieId>,
+    pub index: &'a dyn TrieIndexProvider<TTrieId>,
     pub blobs: Option<TrieFile>,
     pub data: TrieStorageTransientData<TTrieId>,
     pub cache: TrieCache<TTrieId>,
@@ -24,7 +24,7 @@ pub struct TrieFileStorage<'a, TTrieId>
     pub test_genesis_block: Option<TTrieId>,
 }
 
-pub trait TrieFileStorageTrait<'a, TTrieId: MarfTrieId> {
+/*pub trait TrieFileStorageTrait<'a, TTrieId: MarfTrieId> {
 
     fn connection(&'a mut self) -> TrieStorageConnection<'a, TTrieId>;
     fn transaction(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId>, MarfError>;
@@ -46,7 +46,7 @@ pub trait TrieFileStorageTrait<'a, TTrieId: MarfTrieId> {
 
     #[cfg(test)]
     fn test_genesis_block(&self) -> Option<TTrieId>;
-}
+}*/
 
 impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     pub fn readonly(&self) -> bool {

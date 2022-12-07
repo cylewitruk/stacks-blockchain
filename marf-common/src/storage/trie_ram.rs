@@ -9,7 +9,7 @@ use crate::{
     storage::UncommittedState, 
 };
 
-use super::{TrieStorageTransaction, node_hash_reader::NodeHashReader, TrieIndexProvider};
+use super::{TrieStorageTransaction, node_hash_reader::NodeHashReader};
 
 /// In-RAM trie storage.
 /// Used by TrieFileStorage to buffer the next trie being built.

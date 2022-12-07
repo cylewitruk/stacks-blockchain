@@ -1,7 +1,7 @@
 use core::time;
 use std::{thread::sleep, path::Path};
 
-use rusqlite::{Connection, ToSql, Error as SqliteError, Row, Transaction, TransactionBehavior, OpenFlags, NO_PARAMS, blob::Blob};
+use rusqlite::{Connection, ToSql, Error as SqliteError, Row, Transaction, TransactionBehavior, OpenFlags, NO_PARAMS, blob::Blob, OptionalExtension};
 
 use crate::{errors::DBError, MarfTrieId};
 
@@ -494,5 +494,152 @@ impl SqliteUtils {
             false,
         )?;
         Ok(blob)
+    }
+
+    pub fn drop_lock<T: MarfTrieId>(conn: &Connection, bhh: &T) -> Result<(), DBError> {
+        conn.execute(
+            "DELETE FROM block_extension_locks WHERE block_hash = ?",
+            &[bhh],
+        )?;
+        Ok(())
+    }
+    
+    pub fn drop_unconfirmed_trie<T: MarfTrieId>(conn: &Connection, bhh: &T) -> Result<(), DBError> {
+        debug!("Drop unconfirmed trie sqlite blob {}", bhh);
+        conn.execute(
+            "DELETE FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
+            &[bhh],
+        )?;
+        debug!("Dropped unconfirmed trie sqlite blob {}", bhh);
+        Ok(())
+    }
+    
+    pub fn clear_lock_data(conn: &Connection) -> Result<(), DBError> {
+        conn.execute("DELETE FROM block_extension_locks", NO_PARAMS)?;
+        Ok(())
+    }
+    
+    pub fn clear_tables(tx: &Transaction) -> Result<(), DBError> {
+        tx.execute("DELETE FROM block_extension_locks", NO_PARAMS)?;
+        tx.execute("DELETE FROM marf_data", NO_PARAMS)?;
+        tx.execute("DELETE FROM mined_blocks", NO_PARAMS)?;
+        Ok(())
+    }
+
+    /// Write a serialized trie to sqlite
+    pub fn write_trie_blob<T: MarfTrieId>(
+        conn: &Connection,
+        block_hash: &T,
+        data: &[u8],
+    ) -> Result<u32, DBError> {
+        let args: &[&dyn ToSql] = &[block_hash, &data, &0, &0, &0];
+        let mut s =
+            conn.prepare("INSERT INTO marf_data (block_hash, data, unconfirmed, external_offset, external_length) VALUES (?, ?, ?, ?, ?)")?;
+        let block_id = s
+            .insert(args)?
+            .try_into()
+            .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+
+        debug!("Wrote block trie {} to rowid {}", block_hash, block_id);
+        Ok(block_id)
+    }
+
+    /// Write a serialized trie blob for a trie that was mined
+    pub fn write_trie_blob_to_mined<T: MarfTrieId>(
+        conn: &Connection,
+        block_hash: &T,
+        data: &[u8],
+    ) -> Result<u32, DBError> {
+        if let Ok(block_id) = Self::get_mined_block_identifier(conn, block_hash) {
+            // already exists; update
+            let args: &[&dyn ToSql] = &[&data, &block_id];
+            let mut s = conn.prepare("UPDATE mined_blocks SET data = ? WHERE block_id = ?")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        } else {
+            // doesn't exist yet; insert
+            let args: &[&dyn ToSql] = &[block_hash, &data];
+            let mut s = conn.prepare("INSERT INTO mined_blocks (block_hash, data) VALUES (?, ?)")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        };
+
+        let block_id = Self::get_mined_block_identifier(conn, block_hash)?;
+
+        debug!(
+            "Wrote mined block trie {} to rowid {}",
+            block_hash, block_id
+        );
+        Ok(block_id)
+    }
+
+    /// Write a serialized unconfirmed trie blob
+    pub fn write_trie_blob_to_unconfirmed<T: MarfTrieId>(
+        conn: &Connection,
+        block_hash: &T,
+        data: &[u8],
+    ) -> Result<u32, DBError> {
+        if let Ok(Some(_)) = Self::get_confirmed_block_identifier(conn, block_hash) {
+            panic!("BUG: tried to overwrite confirmed MARF trie {}", block_hash);
+        }
+
+        if let Ok(Some(block_id)) = Self::get_unconfirmed_block_identifier(conn, block_hash) {
+            // already exists; update
+            let args: &[&dyn ToSql] = &[&data, &block_id];
+            let mut s = conn.prepare("UPDATE marf_data SET data = ? WHERE block_id = ?")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        } else {
+            // doesn't exist yet; insert
+            let args: &[&dyn ToSql] = &[block_hash, &data, &1];
+            let mut s =
+                conn.prepare("INSERT INTO marf_data (block_hash, data, unconfirmed, external_offset, external_length) VALUES (?, ?, ?, 0, 0)")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        };
+
+        let block_id = Self::get_unconfirmed_block_identifier(conn, block_hash)?
+            .expect(&format!("BUG: stored {} but got no block ID", block_hash));
+
+        debug!(
+            "Wrote unconfirmed block trie {} to rowid {}",
+            block_hash, block_id
+        );
+        Ok(block_id)
+    }
+
+    pub fn get_mined_block_identifier<T: MarfTrieId>(conn: &Connection, bhh: &T) -> Result<u32, DBError> {
+        conn.query_row(
+            "SELECT block_id FROM mined_blocks WHERE block_hash = ?",
+            &[bhh],
+            |row| row.get("block_id"),
+        )
+        .map_err(|e| e.into())
+    }
+
+    pub fn get_confirmed_block_identifier<T: MarfTrieId>(
+        conn: &Connection,
+        bhh: &T,
+    ) -> Result<Option<u32>, DBError> {
+        conn.query_row(
+            "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 0",
+            &[bhh],
+            |row| row.get("block_id"),
+        )
+        .optional()
+        .map_err(|e| e.into())
+    }
+    
+    pub fn get_unconfirmed_block_identifier<T: MarfTrieId>(
+        conn: &Connection,
+        bhh: &T,
+    ) -> Result<Option<u32>, DBError> {
+        conn.query_row(
+            "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
+            &[bhh],
+            |row| row.get("block_id"),
+        )
+        .optional()
+        .map_err(|e| e.into())
     }
 }

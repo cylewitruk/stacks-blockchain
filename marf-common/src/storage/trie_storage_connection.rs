@@ -23,10 +23,10 @@ pub struct TrieStorageConnection<'a, TTrieId>
     where TTrieId: MarfTrieId
 {
     pub db_path: &'a str,
-    index: &'a dyn TrieIndexProvider<TTrieId>,
-    blobs: Option<&'a mut TrieFile>,
+    pub index: &'a dyn TrieIndexProvider<TTrieId>,
+    pub blobs: Option<&'a mut TrieFile>,
     pub data: &'a mut TrieStorageTransientData<TTrieId>,
-    cache: &'a mut TrieCache<TTrieId>,
+    pub cache: &'a mut TrieCache<TTrieId>,
     pub bench: &'a mut TrieBenchmark,
     pub hash_calculation_mode: TrieHashCalculationMode,
 
@@ -35,7 +35,7 @@ pub struct TrieStorageConnection<'a, TTrieId>
     /// is Some(..), then the storage connection here was used to (re-)open an unconfirmed trie
     /// (via `open_unconfirmed()` or `open_block()` when `self.unconfirmed()` is `true`), or used
     /// to create an unconfirmed trie (via `extend_to_unconfirmed_block()`).
-    unconfirmed_block_id: Option<u32>,
+    pub unconfirmed_block_id: Option<u32>,
 
     // used in testing in order to short-circuit block-height lookups
     //   when the trie struct is tested outside of marf.rs usage
@@ -43,14 +43,13 @@ pub struct TrieStorageConnection<'a, TTrieId>
     pub test_genesis_block: &'a mut Option<TTrieId>,
 }
 
-impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId> 
+impl<'a, TTrieId> TrieStorageConnection<'a, TTrieId> 
     where 
-        TTrieId: MarfTrieId, 
-        TIndex: TrieIndexProvider<TTrieId> 
+        TTrieId: MarfTrieId
 {
     fn new(
         db_path: &'a str, 
-        index: &'a mut TIndex, 
+        index: &'a dyn TrieIndexProvider<TTrieId>, 
         blobs: Option<&'a mut TrieFile>,
         data: &'a mut TrieStorageTransientData<TTrieId>,
         cache: &'a mut TrieCache<TTrieId>,
@@ -75,7 +74,7 @@ impl<'a, TTrieId, TIndex> TrieStorageConnection<'a, TTrieId>
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for TrieStorageConnection<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> BlockMap for TrieStorageConnection<'a, TTrieId> {
     type TrieId = TTrieId;
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
@@ -116,7 +115,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> BlockMap for T
     }
 }
 
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageConnection<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
     pub fn readonly(&self) -> bool {
         self.data.readonly
     }
@@ -188,20 +187,13 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
         (lr, lw)
     }
 
-    /// Recover from partially-written state -- i.e. blow it away.
-    /// Doesn't get called automatically.
-    pub fn recover(db_path: &String) -> Result<(), MarfError> {
-        let conn = marf_sqlite_open(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE, false)?;
-        trie_sql::clear_lock_data(&conn)
-    }
-
     /// Read the Trie root node's hash from the block table.
     #[cfg(test)]
     pub fn read_block_root_hash(&mut self, bhh: &TTrieId) -> Result<TrieHash, MarfError> {
         let root_hash_ptr = TriePtr::new(
             TrieNodeID::Node256 as u8,
             0,
-            TrieStorageConnection::<TTrieId, TIndex>::root_ptr_disk(),
+            TrieStorageConnection::<TTrieId>::root_ptr_disk(),
         );
         if let Some(blobs) = self.blobs.as_mut() {
             // stored in a blobs file
@@ -249,7 +241,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
     }
 
     /// internal procedure for locking a trie hash for work
-    fn switch_trie(&mut self, bhh: &TTrieId, trie_buf: UncommittedState<TTrieId>) {
+    pub (in crate::storage) fn switch_trie(&mut self, bhh: &TTrieId, trie_buf: UncommittedState<TTrieId>) {
         trace!("Extended from {} to {}", &self.data.cur_block, bhh);
 
         // update internal structures
@@ -349,7 +341,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
             }
         }
 
-        TrieStorageConnection::<TTrieId, TIndex>::root_ptr_disk()
+        TrieStorageConnection::<TTrieId>::root_ptr_disk()
     }
 
     /// Get a TriePtr to the currently-open block's trie's root node.
@@ -512,7 +504,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
             if &self.data.cur_block == uncommitted_bhh {
                 // storage currently points to uncommitted state
                 let start_time = self.bench.write_children_hashes_start();
-                let res = TrieStorageConnection::<TTrieId, TIndex>::inner_write_children_hashes(
+                let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                     uncommitted_trie.trie_ram_mut(),
                     &mut map,
                     node,
@@ -552,7 +544,7 @@ impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> TrieStorageCon
                     MarfError::NotFoundError
                 })?,
             };
-            let res = TrieStorageConnection::<TTrieId, TIndex>::inner_write_children_hashes(
+            let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
                 node,

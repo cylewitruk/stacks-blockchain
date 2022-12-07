@@ -35,7 +35,7 @@ impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
         SqliteUtils::tx_begin_immediate(&mut self.db)
     }
 
-    fn open_opts<TIndex: TrieIndexProvider<TTrieId>>(
+    fn open_opts(
         &self,
         db_path: &str, 
         readonly: bool, 

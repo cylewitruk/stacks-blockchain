@@ -1,3 +1,5 @@
+use std::io::{Read, Write, Seek};
+
 use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}};
@@ -45,4 +47,39 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> {
         length: u64,
     ) -> Result<u32, MarfError>;
 
+    /// Write a serialized trie to sqlite
+    fn write_trie_blob(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError>;
+
+    fn write_trie_blob_to_mined(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError>;
+
+    fn write_trie_blob_to_unconfirmed(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError>;
+
+    fn drop_lock(&self, bhh: &TTrieId) -> Result<(), MarfError>;
+
+    fn lock_bhh_for_extension(
+        &self,
+        bhh: &TTrieId,
+        unconfirmed: bool,
+    ) -> Result<bool, MarfError>;
+
+    fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError>;
+
+    fn format(&self);
+
+    fn open_trie_blob(&self, block_id: u32) -> Result<&dyn TrieBlob, MarfError>;
+
 }
+
+pub trait TrieBlob: Read + Seek {}

@@ -381,7 +381,7 @@ impl TrieFile {
 
     /// Get all (root hash, trie hash) pairs for this TrieFile
     #[cfg(test)]
-    pub fn read_all_block_hashes_and_roots<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>>(
+    pub fn read_all_block_hashes_and_roots<TTrieId: MarfTrieId>(
         &mut self,
         db: &dyn TrieIndexProvider<TTrieId>,
     ) -> Result<Vec<(TrieHash, TTrieId)>, MarfError> {
@@ -394,7 +394,7 @@ impl TrieFile {
             let block_hash: TTrieId = row.get_unwrap("block_hash");
             let offset_i64: i64 = row.get_unwrap("external_offset");
             let offset = offset_i64 as u64;
-            let start = TrieStorageConnection::<TTrieId, TIndex>::root_ptr_disk() as u64;
+            let start = TrieStorageConnection::<TTrieId>::root_ptr_disk() as u64;
 
             self.seek(SeekFrom::Start(offset + start))?;
             let hash_buff = Utils::read_hash_bytes(self)?;

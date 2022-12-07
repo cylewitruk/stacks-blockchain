@@ -3,7 +3,7 @@ use stacks_common::{types::chainstate::TrieHash, util::hash::Sha512Trunc256Sum};
 use crate::{
     MarfTrieId,
     Trie,
-    storage::{TrieFileStorage, TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider, TrieFileStorageTrait}, 
+    storage::{TrieFileStorage, TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider}, 
     WriteChainTip, 
     MarfConnection, MarfError, utils::Utils, CursorError, BLOCK_HASH_TO_HEIGHT_MAPPING_KEY, 
     OWN_BLOCK_HEIGHT_KEY, BLOCK_HEIGHT_TO_HASH_MAPPING_KEY, marf_transaction::MarfTransaction, 
@@ -17,7 +17,7 @@ use crate::{
 /// Merklized Adaptive-Radix Forest -- a collection of Merklized Adaptive-Radix Tries.
 pub struct Marf<'a, TTrieId: MarfTrieId> {
     //storage: TrieFileStorage<TTrieId, TIndex>,
-    storage: &'a dyn TrieFileStorageTrait<'a, TTrieId>,
+    storage: TrieFileStorage<'a, TTrieId>,
     open_chain_tip: Option<WriteChainTip<TTrieId>>,
 }
 
@@ -33,7 +33,7 @@ impl<'a, TTrieId: MarfTrieId> MarfConnection<TTrieId> for Marf<'a, TTrieId> {
 // static methods
 impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     #[cfg(test)]
-    pub fn from_storage_opened(storage: &dyn TrieFileStorageTrait<'a, TTrieId>, opened_to: &TTrieId) -> Marf<'a, TTrieId> {
+    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId>, opened_to: &TTrieId) -> Marf<'a, TTrieId> {
         Marf {
             storage,
             open_chain_tip: Some(WriteChainTip {
@@ -749,7 +749,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
 }
 
 // instance methods
-impl<'a, TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> Marf<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     pub fn begin_tx(&'a mut self) -> Result<MarfTransaction<'a, TTrieId>, MarfError> {
         let storage = self.storage.transaction()?;
         Ok(MarfTransaction {

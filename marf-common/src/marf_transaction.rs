@@ -87,13 +87,13 @@ impl<'a, TTrieId> MarfTransaction<'a, TTrieId>
         self.storage.commit_tx()
     }
 
-    pub fn sqlite_tx(&self) -> &Transaction<'a> {
+    /*pub fn sqlite_tx(&self) -> &Transaction<'a> {
         self.storage.sqlite_tx()
     }
 
     pub fn sqlite_tx_mut(&mut self) -> &mut Transaction<'a> {
         self.storage.sqlite_tx_mut()
-    }
+    }*/
 
     /// Reopen this MARF transaction with readonly storage.
     ///   NOTE: any pending operations in the SQLite transaction _will not_

@@ -1,13 +1,15 @@
-use rusqlite::{Connection, OpenFlags, NO_PARAMS, ToSql, OptionalExtension, Transaction};
+use std::io::{Read, Write, Seek};
+
+use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection}, MarfError, utils::Utils, MarfTrieId};
+use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieStorageTransactionTrait, TrieBlob}, MarfError, utils::Utils, MarfTrieId};
 
 use super::SqliteUtils;
 
 pub struct SqliteIndexProvider<'a> {
     db: &'a Connection,
-    tx: &'a mut Option<Transaction<'a>>
+    tx: &'a mut Option<&'a mut Transaction<'a>>
 }
 
 impl<'a> SqliteIndexProvider<'a> {
@@ -15,8 +17,54 @@ impl<'a> SqliteIndexProvider<'a> {
         SqliteIndexProvider { db, tx: &mut None }
     }
 
+    /// Recover from partially-written state -- i.e. blow it away.
+    /// Doesn't get called automatically.
+    pub fn recover(db_path: &String) -> Result<(), MarfError> {
+        let conn = marf_sqlite_open(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE, false)?;
+        SqliteUtils::clear_lock_data(&conn)
+    }
+
     pub fn has_transaction(&self) -> bool {
         !self.tx.is_none()
+    }
+
+    pub fn sqlite_get_active_transaction(&self) -> &mut Transaction {
+        if !self.has_transaction() {
+            panic!("BUG: Attempted to fetch SQLite transaction without an active transaction.")
+        }
+
+        self.tx.unwrap()
+    }
+
+    pub fn sqlite_begin_transaction(&self) -> &mut Transaction {
+        if self.has_transaction() {
+            panic!("BUG: Attempted to begin SQLite transaction when one already exists.")
+        }
+
+        let trx = self.db.transaction()
+            .or_else(|op| panic!("BUG: Failed to begin SQLite transaction."));
+
+        self.tx = Some(&trx);
+
+        &trx
+    }
+
+    pub fn sqlite_commit(&self) {
+        if !self.has_transaction() {
+            panic!("BUG: Attempted to commit SQLite transaction without an active transaction.")
+        }
+
+        self.tx.unwrap().commit()
+            .expect("CORRUPTION: Failed to commit MARF.");
+    }
+
+    pub fn sqlite_rollback(&self) {
+        if !self.has_transaction() {
+            panic!("BUG: Attempted to rollback SQLite transaction without an active transaction.")
+        }
+
+        self.tx.unwrap().rollback()
+            .expect("CORRUPTION: Failed to rollback MARF.")
     }
 
     /// Write the offset/length of a trie blob that was stored to an external file.
@@ -151,7 +199,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
                 .as_blob()
                 .expect("DB Corruption: MARF data is non-blob");
 
-            let start = TrieStorageConnection::<TTrieId, SqliteIndexProvider>::root_ptr_disk() as usize;
+            let start = TrieStorageConnection::<TTrieId>::root_ptr_disk() as usize;
             let trie_hash = TrieHash(Utils::read_hash_bytes(&mut &data[start..])?);
 
             Ok((trie_hash, block_hash))
@@ -269,5 +317,160 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         length: u64,
     ) -> Result<u32, crate::MarfError> {
         self.inner_write_external_trie_blob(block_hash, offset, length, None)
+    }
+
+    fn write_trie_blob(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError> {
+        let args: &[&dyn ToSql] = &[block_hash, &data, &0, &0, &0];
+        let mut s =
+            self.db.prepare("INSERT INTO marf_data (block_hash, data, unconfirmed, external_offset, external_length) VALUES (?, ?, ?, ?, ?)")?;
+        let block_id = s
+            .insert(args)?
+            .try_into()
+            .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+
+        debug!("Wrote block trie {} to rowid {}", block_hash, block_id);
+        Ok(block_id)
+    }
+
+    fn write_trie_blob_to_mined(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError> {
+        if let Ok(block_id) = SqliteUtils::get_mined_block_identifier(self.db, block_hash) {
+            // already exists; update
+            let args: &[&dyn ToSql] = &[&data, &block_id];
+            let mut s = self.db.prepare("UPDATE mined_blocks SET data = ? WHERE block_id = ?")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        } else {
+            // doesn't exist yet; insert
+            let args: &[&dyn ToSql] = &[block_hash, &data];
+            let mut s = self.db.prepare("INSERT INTO mined_blocks (block_hash, data) VALUES (?, ?)")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        };
+    
+        let block_id = SqliteUtils::get_mined_block_identifier(self.db, block_hash)?;
+    
+        debug!(
+            "Wrote mined block trie {} to rowid {}",
+            block_hash, block_id
+        );
+        Ok(block_id)
+    }
+
+    fn write_trie_blob_to_unconfirmed(
+        &self,
+        block_hash: &TTrieId,
+        data: &[u8],
+    ) -> Result<u32, MarfError> {
+        if let Ok(Some(_)) = Self::get_confirmed_block_identifier(self, block_hash) {
+            panic!("BUG: tried to overwrite confirmed MARF trie {}", block_hash);
+        }
+
+        if let Ok(Some(block_id)) = Self::get_unconfirmed_block_identifier(self, block_hash) {
+            // already exists; update
+            let args: &[&dyn ToSql] = &[&data, &block_id];
+            let mut s = self.db.prepare("UPDATE marf_data SET data = ? WHERE block_id = ?")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        } else {
+            // doesn't exist yet; insert
+            let args: &[&dyn ToSql] = &[block_hash, &data, &1];
+            let mut s =
+                self.db.prepare("INSERT INTO marf_data (block_hash, data, unconfirmed, external_offset, external_length) VALUES (?, ?, ?, 0, 0)")?;
+            s.execute(args)
+                .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
+        };
+
+        let block_id = Self::get_unconfirmed_block_identifier(self, block_hash)?
+            .expect(&format!("BUG: stored {} but got no block ID", block_hash));
+
+        debug!(
+            "Wrote unconfirmed block trie {} to rowid {}",
+            block_hash, block_id
+        );
+        Ok(block_id)
+    }
+
+    fn drop_lock(&self, bhh: &TTrieId) -> Result<(), MarfError> {
+        self.db.execute(
+            "DELETE FROM block_extension_locks WHERE block_hash = ?",
+            &[bhh],
+        )?;
+        Ok(())
+    }
+
+    fn lock_bhh_for_extension(
+        &self,
+        bhh: &TTrieId,
+        unconfirmed: bool,
+    ) -> Result<bool, MarfError> {
+        let tx = self.sqlite_get_active_transaction();
+
+        if !unconfirmed {
+            // confirmed tries can only be extended once.
+            // unconfirmed tries can be overwritten.
+            let is_bhh_committed = tx
+                .query_row(
+                    "SELECT 1 FROM marf_data WHERE block_hash = ? LIMIT 1",
+                    &[bhh],
+                    |_row| Ok(()),
+                )
+                .optional()?
+                .is_some();
+            if is_bhh_committed {
+                return Ok(false);
+            }
+        }
+    
+        let is_bhh_locked = tx
+            .query_row(
+                "SELECT 1 FROM block_extension_locks WHERE block_hash = ? LIMIT 1",
+                &[bhh],
+                |_row| Ok(()),
+            )
+            .optional()?
+            .is_some();
+        if is_bhh_locked {
+            return Ok(false);
+        }
+    
+        tx.execute(
+            "INSERT INTO block_extension_locks (block_hash) VALUES (?)",
+            &[bhh],
+        )?;
+        Ok(true)
+    }
+
+    fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError> {
+        debug!("Drop unconfirmed trie sqlite blob {}", bhh);
+        self.db.execute(
+            "DELETE FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
+            &[bhh],
+        )?;
+        debug!("Dropped unconfirmed trie sqlite blob {}", bhh);
+        Ok(())
+    }
+
+    fn open_trie_blob(&self, block_id: u32) -> Result<&dyn TrieBlob, MarfError> {
+        let blob = self.db.blob_open(
+            rusqlite::DatabaseName::Main,
+            "marf_data",
+            "data",
+            block_id.into(),
+            true,
+        )?;
+        Ok(&blob)
+    }
+
+    fn format(&self) {
+        let tx = self.sqlite_get_active_transaction();
+        SqliteUtils::clear_tables(tx)
     }
 }
