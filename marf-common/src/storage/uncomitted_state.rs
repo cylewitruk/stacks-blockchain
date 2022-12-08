@@ -4,7 +4,7 @@ use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}};
 
-use super::{TrieStorageTransaction, TrieIndexProvider, TrieRAM};
+use super::{TrieStorageTransaction, TrieRAM};
 
 /// Uncommitted storage state to be flushed
 #[derive(Clone)]

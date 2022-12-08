@@ -11,7 +11,6 @@ mod block_map;
 mod marf_value;
 mod marf_trie_id;
 mod consensus_serialization;
-mod macros;
 mod storage;
 mod clarity_marf_trie_id;
 mod marf_open_opts;
@@ -45,7 +44,6 @@ pub use {
 
 use sha2::Sha512_256 as TrieHasher;
 
-pub const TRIEHASH_ENCODED_SIZE: usize = 32;
 pub const MARF_VALUE_ENCODED_SIZE: u32 = 40;
 pub const SENTINEL_ARRAY: [u8; 32] = [255u8; 32];
 pub const BLOCK_HASH_TO_HEIGHT_MAPPING_KEY: &str = "__MARF_BLOCK_HASH_TO_HEIGHT";

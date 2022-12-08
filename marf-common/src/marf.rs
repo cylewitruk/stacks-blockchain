@@ -5,7 +5,7 @@ use stacks_common::{types::chainstate::TrieHash, util::hash::Sha512Trunc256Sum};
 use crate::{
     MarfTrieId,
     Trie,
-    storage::{TrieFileStorage, TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider}, 
+    storage::{TrieFileStorage, TrieStorageConnection, TrieStorageTransaction}, 
     WriteChainTip, 
     MarfConnection, MarfError, utils::Utils, CursorError, BLOCK_HASH_TO_HEIGHT_MAPPING_KEY, 
     OWN_BLOCK_HEIGHT_KEY, BLOCK_HEIGHT_TO_HASH_MAPPING_KEY, marf_transaction::MarfTransaction, 

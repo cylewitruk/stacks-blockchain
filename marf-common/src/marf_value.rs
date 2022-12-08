@@ -1,7 +1,7 @@
 use sha2::Digest;
-use stacks_common::types::chainstate::TrieHash;
+use stacks_common::types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE};
 
-use crate::{MarfTrieId, TRIEHASH_ENCODED_SIZE, MARF_VALUE_ENCODED_SIZE};
+use crate::{MarfTrieId, MARF_VALUE_ENCODED_SIZE};
 
 pub struct MarfValue(pub [u8; 40]);
 impl_array_newtype!(MarfValue, u8, 40);

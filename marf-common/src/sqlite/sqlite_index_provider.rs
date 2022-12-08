@@ -1,6 +1,6 @@
 use std::{fs, io::{self, Read, Seek}};
 
-use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
+use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags, blob::Blob};
 use stacks_common::types::chainstate::TrieHash;
 
 use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts};
@@ -540,7 +540,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(())
     }
 
-    fn open_trie_blob(&self, block_id: u32) -> Result<&dyn TrieBlob, MarfError> {
+    fn open_trie_blob(&self, block_id: u32) -> Result<&mut dyn TrieBlob, MarfError> {
         let blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
@@ -548,7 +548,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
             block_id.into(),
             true,
         )?;
-        Ok(&blob)
+        Ok(&mut blob)
     }
 
     fn format(&self) -> Result<(), MarfError> {

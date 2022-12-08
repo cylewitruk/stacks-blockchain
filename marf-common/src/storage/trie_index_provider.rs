@@ -78,7 +78,7 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> {
 
     fn format(&self) -> Result<(), MarfError>;
 
-    fn open_trie_blob(&self, block_id: u32) -> Result<&dyn TrieBlob, MarfError>;
+    fn open_trie_blob(&self, block_id: u32) -> Result<&mut dyn TrieBlob, MarfError>;
 
     fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError>;
 

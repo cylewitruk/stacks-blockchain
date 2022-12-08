@@ -2,7 +2,7 @@ use std::io::{Write, Read, ErrorKind, Seek, SeekFrom};
 
 use sha2::Digest;
 use stacks_common::{
-    types::chainstate::TrieHash, 
+    types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE}, 
     util::hash::to_hex
 };
 
@@ -21,7 +21,7 @@ use crate::{
     storage::TrieStorageConnection, 
     consensus_serialization::ConsensusSerializable, 
     MarfTrieId, 
-    TRIEHASH_ENCODED_SIZE};
+};
 
 pub struct Utils;
 

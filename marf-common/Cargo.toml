@@ -18,7 +18,6 @@ name = "marf_common"
 path = "./src/lib.rs"
 
 [dependencies]
-macros_common = { package = "macros-common", path = "../macros-common/." }
 stacks_common = { package = "stacks-common", path = "../stacks-common/." }
 serde = "1"
 serde_derive = "1"

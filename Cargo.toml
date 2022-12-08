@@ -139,6 +139,5 @@ members = [
     "stx-genesis",
     "testnet/stacks-node",
     "marf",
-    "marf-common",
-    "macros-common"
+    "marf-common"
 ]

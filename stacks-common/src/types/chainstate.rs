@@ -321,6 +321,8 @@ impl StacksMessageCodec for StacksWorkScore {
     }
 }
 
+pub const TRIEHASH_ENCODED_SIZE: usize = 32;
+
 // Implement rusqlite traits for a bunch of structs that used to be defined
 //  in the chainstate code
 impl_byte_array_rusqlite_only!(ConsensusHash);
@@ -335,7 +337,6 @@ impl_byte_array_rusqlite_only!(MessageSignature);
 
 impl_byte_array_message_codec!(TrieHash, TRIEHASH_ENCODED_SIZE as u32);
 impl_byte_array_message_codec!(Sha512Trunc256Sum, 32);
-
 impl_byte_array_message_codec!(ConsensusHash, 20);
 impl_byte_array_message_codec!(Hash160, 20);
 impl_byte_array_message_codec!(BurnchainHeaderHash, 32);

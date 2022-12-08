@@ -1,6 +1,6 @@
-use stacks_common::{types::chainstate::TrieHash, util::macros::is_trace};
+use stacks_common::{types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE}, util::macros::is_trace};
 
-use crate::{utils::Utils, MarfTrieId, storage::{TrieStorageConnection}, MarfError, Marf, tries::nodes::{TrieNodeID, TrieNode256, TrieNode4, TrieNode48, TrieNode16, TrieNode}, TRIEHASH_ENCODED_SIZE, TrieHashExtension};
+use crate::{utils::Utils, MarfTrieId, storage::{TrieStorageConnection}, MarfError, Marf, tries::nodes::{TrieNodeID, TrieNode256, TrieNode4, TrieNode48, TrieNode16, TrieNode}, TrieHashExtension};
 
 use super::{TrieCursor, TrieHashCalculationMode, nodes::TrieNodeType, TrieLeaf, TriePtr};
 

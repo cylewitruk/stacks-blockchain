@@ -42,7 +42,7 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     }
 
     pub fn transaction(&'a mut self) -> Result<TrieStorageTransaction<'a, TTrieId>, MarfError> {
-        if self.readonly() {
+        if self.is_readonly() {
             return Err(MarfError::ReadOnlyError);
         }
 

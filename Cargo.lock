@@ -1582,17 +1582,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macros-common"
-version = "0.0.1"
-dependencies = [
- "lazy_static",
- "serde",
- "serde_derive",
- "serde_json",
- "slog",
-]
-
-[[package]]
 name = "marf"
 version = "0.0.1"
 dependencies = [
@@ -1612,7 +1601,6 @@ name = "marf-common"
 version = "0.0.1"
 dependencies = [
  "lz4_flex",
- "macros-common",
  "rand 0.7.3",
  "rusqlite",
  "serde",
