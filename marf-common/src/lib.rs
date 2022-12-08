@@ -2,7 +2,8 @@
 extern crate slog;
 
 #[macro_use(test_debug, debug, info, warn, error, trace, impl_byte_array_message_codec, 
-    impl_array_newtype, impl_array_hexstring_fmt, impl_byte_array_newtype, define_u8_enum
+    impl_array_newtype, impl_array_hexstring_fmt, impl_byte_array_newtype, define_u8_enum,
+    impl_index_newtype
 )]
 extern crate stacks_common;
 

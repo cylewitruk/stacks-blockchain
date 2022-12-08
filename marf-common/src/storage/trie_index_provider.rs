@@ -1,4 +1,4 @@
-use std::{io::{Read, Write, Seek}, marker::PhantomData};
+use std::{io::{Read, Seek}};
 
 use stacks_common::types::chainstate::TrieHash;
 
@@ -93,6 +93,7 @@ pub trait TrieBlob: Read + Seek {}
 
 impl<T: Seek + Read> TrieBlob for T {}
 
+#[derive(Debug, Clone)]
 pub enum TrieIndexType<'a> {
     Sqlite { marf_opts: &'a MarfOpenOpts }
 }

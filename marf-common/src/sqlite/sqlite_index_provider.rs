@@ -1,6 +1,6 @@
-use std::{fs, io::{self, Read, Seek}};
+use std::{fs, io};
 
-use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags, blob::Blob};
+use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
 use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts};

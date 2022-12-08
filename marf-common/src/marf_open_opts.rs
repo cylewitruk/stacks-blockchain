@@ -1,4 +1,4 @@
-use crate::tries::TrieHashCalculationMode;
+use crate::{tries::TrieHashCalculationMode, storage::TrieIndexType};
 
 
 /// Options for opening a MARF
