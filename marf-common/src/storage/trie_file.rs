@@ -1,4 +1,4 @@
-use std::{io::{SeekFrom, Cursor, self, Read, Write, Seek}, fs::{self, OpenOptions}, collections::HashMap, path::Path};
+use std::{io::{SeekFrom, Cursor, self, Read, Write, Seek}, fs::{self, OpenOptions}, collections::HashMap};
 
 use stacks_common::types::chainstate::TrieHash;
 

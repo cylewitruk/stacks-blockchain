@@ -7,6 +7,9 @@ extern crate slog;
 )]
 extern crate stacks_common;
 
+#[macro_use(Serialize, Deserialize)]
+extern crate serde_derive;
+
 mod utils;
 mod block_map;
 mod marf_value;

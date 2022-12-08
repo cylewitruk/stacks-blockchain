@@ -3,7 +3,7 @@ use crate::{tries::TrieHashCalculationMode, storage::TrieIndexType};
 
 /// Options for opening a MARF
 #[derive(Clone, Debug)]
-pub struct MarfOpenOpts {
+pub struct MarfOpenOpts<'a> {
     /// Hash calculation mode for calculating a trie root hash
     pub hash_calculation_mode: TrieHashCalculationMode,
     /// Cache strategy to use
@@ -15,11 +15,11 @@ pub struct MarfOpenOpts {
     /// The file path of the index
     pub db_path: String,
     /// The index storage type
-    pub trie_index_type: TrieIndexType
+    pub trie_index_type: TrieIndexType<'a>
 }
 
-impl MarfOpenOpts {
-    pub fn default() -> MarfOpenOpts {
+impl<'a> MarfOpenOpts<'a> {
+    pub fn default() -> MarfOpenOpts<'a> {
         MarfOpenOpts {
             hash_calculation_mode: TrieHashCalculationMode::Deferred,
             cache_strategy: "noop".to_string(),

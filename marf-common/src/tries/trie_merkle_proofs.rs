@@ -28,7 +28,7 @@ use super::{
     TrieCursor
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum TrieMerkleProofType<T> {
     Node4((u8, ProofTrieNode<T>, [TrieHash; 3])),
     Node16((u8, ProofTrieNode<T>, [TrieHash; 15])),
@@ -37,6 +37,10 @@ pub enum TrieMerkleProofType<T> {
     Leaf((u8, TrieLeaf)),
     Shunt((i64, Vec<TrieHash>)),
 }
+
+define_u8_enum!( TrieMerkleProofTypeIndicator {
+    Node4 = 0, Node16 = 1, Node48 = 2, Node256 = 3, Leaf = 4, Shunt = 5
+});
 
 impl<T: MarfTrieId> ProofTrieNode<T> {
     fn ptrs(&self) -> &[ProofTriePtr<T>] {
