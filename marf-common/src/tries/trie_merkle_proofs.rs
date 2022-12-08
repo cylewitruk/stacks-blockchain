@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use stacks_common::{
     types::chainstate::TrieHash, 
-    util::hash::to_hex
+    util::hash::to_hex, codec::StacksMessageCodec
 };
 
 use crate::{

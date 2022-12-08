@@ -569,7 +569,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     /// Instantiate the MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
+    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<'a, TTrieId>, MarfError> {
         let file_storage = TrieFileStorage::open(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }
@@ -577,7 +577,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     /// Instantiate an unconfirmed MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
+    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<'a, TTrieId>, MarfError> {
         let file_storage = TrieFileStorage::open_unconfirmed(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }

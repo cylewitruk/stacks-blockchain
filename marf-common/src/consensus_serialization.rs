@@ -2,7 +2,7 @@ use std::{io::{Write, Read}, fmt, ops::Deref};
 
 use stacks_common::{types::chainstate::TrieHash, codec::{StacksMessageCodec, read_next, Error as CodecError}};
 
-use crate::{MarfError, BlockMap, utils::Utils, tries::{nodes::TrieNode, ProofTrieNode, trie_merkle_proofs::{TrieMerkleProofType, TrieMerkleProofTypeIndicator}, TrieMerkleProof, ProofTriePtr}, MarfTrieId};
+use crate::{MarfError, BlockMap, utils::Utils, tries::{nodes::TrieNode, ProofTrieNode, trie_merkle_proofs::{TrieMerkleProofType, TrieMerkleProofTypeIndicator}, TrieMerkleProof, ProofTriePtr, TrieLeaf}, MarfTrieId};
 
 /// Trait for types that can serialize to consensus bytes
 /// This is implemented by `TrieNode`s and `ProofTrieNode`s
@@ -264,5 +264,19 @@ impl<T: MarfTrieId> StacksMessageCodec for TrieMerkleProof<T> {
     fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<TrieMerkleProof<T>, CodecError> {
         let proof_parts: Vec<TrieMerkleProofType<T>> = read_next(fd)?;
         Ok(TrieMerkleProof(proof_parts))
+    }
+}
+
+impl StacksMessageCodec for TrieLeaf {
+    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), CodecError> {
+        self.path.consensus_serialize(fd)?;
+        self.data.consensus_serialize(fd)
+    }
+
+    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<TrieLeaf, CodecError> {
+        let path = read_next(fd)?;
+        let data = read_next(fd)?;
+
+        Ok(TrieLeaf { path, data })
     }
 }

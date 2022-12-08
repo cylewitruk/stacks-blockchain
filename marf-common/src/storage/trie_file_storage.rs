@@ -68,7 +68,7 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
         readonly: bool,
         unconfirmed: bool,
         marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+    ) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         let mut create_flag = false;
 
         match marf_opts.trie_index_type {
@@ -136,21 +136,21 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
         TrieFileStorage::open(":memory:", marf_opts)
     }
 
-    pub fn open(db_path: &str, marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+    pub fn open(db_path: &str, marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         TrieFileStorage::open_opts(db_path, false, false, marf_opts)
     }
 
     pub fn open_readonly(
         db_path: &str,
         marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+    ) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         TrieFileStorage::open_opts(db_path, true, false, marf_opts)
     }
 
     pub fn open_unconfirmed(
         db_path: &str,
         mut marf_opts: MarfOpenOpts,
-    ) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+    ) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         // no caching allowed for unconfirmed tries, since they can disappear
         marf_opts.cache_strategy = "noop".to_string();
         TrieFileStorage::open_opts(db_path, false, true, marf_opts)

@@ -11,7 +11,7 @@ pub struct SqliteIndexProvider<'a> {
     db_path: &'a str,
     db: Connection,
     tx: &'a mut Option<&'a mut Transaction<'a>>,
-    marf_opts: &'a MarfOpenOpts
+    marf_opts: &'a MarfOpenOpts<'a>
 }
 
 impl<'a> SqliteIndexProvider<'a> {

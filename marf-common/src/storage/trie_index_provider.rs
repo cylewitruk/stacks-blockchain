@@ -95,5 +95,5 @@ impl<T: Seek + Read> TrieBlob for T {}
 
 #[derive(Debug, Clone)]
 pub enum TrieIndexType<'a> {
-    Sqlite { marf_opts: &'a MarfOpenOpts }
+    Sqlite { marf_opts: &'a MarfOpenOpts<'a> }
 }
