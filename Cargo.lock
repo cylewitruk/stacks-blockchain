@@ -1573,6 +1573,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lz4_flex"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a8cbbb2831780bc3b9c15a41f5b49222ef756b6730a95f3decfdd15903eb5a3"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
 name = "macros-common"
 version = "0.0.1"
 dependencies = [
@@ -1602,6 +1611,7 @@ dependencies = [
 name = "marf-common"
 version = "0.0.1"
 dependencies = [
+ "lz4_flex",
  "macros-common",
  "rand 0.7.3",
  "rusqlite",
@@ -1611,6 +1621,7 @@ dependencies = [
  "sha2 0.10.2",
  "slog",
  "stacks-common",
+ "zstd-safe",
 ]
 
 [[package]]
@@ -2927,6 +2938,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "stdweb"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3271,6 +3288,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "1.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
+dependencies = [
+ "cfg-if 1.0.0",
+ "static_assertions",
+]
+
+[[package]]
 name = "typenum"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3606,6 +3633,16 @@ name = "zeroize"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c88870063c39ee00ec285a2f8d6a966e5b6fb2becc4e8dac77ed0d370ed6006"
+
+[[package]]
+name = "zstd-safe"
+version = "6.0.2+zstd.1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6cf39f730b440bab43da8fb5faf5f254574462f73f260f85f7987f32154ff17"
+dependencies = [
+ "libc",
+ "zstd-sys",
+]
 
 [[package]]
 name = "zstd-sys"

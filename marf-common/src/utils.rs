@@ -1,9 +1,27 @@
 use std::io::{Write, Read, ErrorKind, Seek, SeekFrom};
 
 use sha2::Digest;
-use stacks_common::{types::chainstate::TrieHash, util::hash::to_hex};
+use stacks_common::{
+    types::chainstate::TrieHash, 
+    util::hash::to_hex
+};
 
-use crate::{TrieHasher, errors::MarfError, BlockMap, tries::{TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, TRIEPTR_SIZE, TRIEPATH_MAX_LEN, TrieLeaf, TrieHashCalculationMode}, storage::{TrieIndexProvider, TrieStorageConnection}, consensus_serialization::ConsensusSerializable, MarfTrieId, TRIEHASH_ENCODED_SIZE};
+use crate::{
+    TrieHasher, 
+    errors::MarfError, 
+    BlockMap, 
+    tries::{
+        TriePtr, 
+        nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, 
+        TRIEPTR_SIZE, 
+        TRIEPATH_MAX_LEN, 
+        TrieLeaf, 
+        TrieHashCalculationMode
+    }, 
+    storage::TrieStorageConnection, 
+    consensus_serialization::ConsensusSerializable, 
+    MarfTrieId, 
+    TRIEHASH_ENCODED_SIZE};
 
 pub struct Utils;
 

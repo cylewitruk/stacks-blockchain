@@ -26,6 +26,7 @@ mod diagnostics;
 pub mod errors;
 pub mod sqlite;
 mod trie_hash_extension;
+mod compression;
 
 pub use errors::{MarfError, CursorError};
 pub use block_map::BlockMap;

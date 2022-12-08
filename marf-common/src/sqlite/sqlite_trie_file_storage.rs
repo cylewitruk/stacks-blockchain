@@ -4,27 +4,11 @@ use rusqlite::{Transaction, Connection, OpenFlags};
 
 use crate::{
     MarfError, MarfOpenOpts, 
-    storage::{TrieFile, TrieStorageTransientData, TrieFileStorageTrait, TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider}, 
+    storage::{TrieFile, TrieStorageTransientData, TrieStorageConnection, TrieStorageTransaction, TrieIndexProvider}, 
     MarfTrieId, diagnostics::TrieBenchmark, TrieCache, errors::DBError, tries::TrieHashCalculationMode, sqlite::SQL_MARF_SCHEMA_VERSION};
 
 use super::{SqliteUtils, SqliteIndexProvider};
 
-pub struct SqliteTrieFileStorage<TTrieId: MarfTrieId> {
-    pub db_path: String,
-    pub db: Connection,
-    marf_opts: MarfOpenOpts,
-    index: Box<dyn TrieIndexProvider<TTrieId>>,
-    blobs: Option<TrieFile>,
-    data: TrieStorageTransientData<TTrieId>,
-    cache: TrieCache<TTrieId>,
-    bench: TrieBenchmark,
-    hash_calculation_mode: TrieHashCalculationMode,
-
-    // used in testing in order to short-circuit block-height lookups
-    //   when the trie struct is tested outside of marf.rs usage
-    #[cfg(test)]
-    pub test_genesis_block: Option<TTrieId>,
-}
 
 impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
     pub fn sqlite_conn(&self) -> &Connection {
@@ -41,7 +25,7 @@ impl<TTrieId: MarfTrieId> SqliteTrieFileStorage<TTrieId> {
         readonly: bool, 
         unconfirmed: bool, 
         marf_opts: MarfOpenOpts
-    ) -> Result<&dyn TrieFileStorageTrait<TTrieId>, MarfError> 
+    ) -> Result<&SqliteTrieFileStorage<TTrieId>, MarfError> 
     {
         let mut create_flag = false;
         let open_flags = if db_path != ":memory:" {

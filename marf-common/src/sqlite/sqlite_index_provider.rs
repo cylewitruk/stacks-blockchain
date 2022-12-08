@@ -1,9 +1,9 @@
-use std::io::{Read, Write, Seek};
+use std::{io::{Read, Write, Seek, self}, fs};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieStorageTransactionTrait, TrieBlob}, MarfError, utils::Utils, MarfTrieId};
+use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob}, MarfError, utils::Utils, MarfTrieId};
 
 use super::SqliteUtils;
 
@@ -13,14 +13,35 @@ pub struct SqliteIndexProvider<'a> {
 }
 
 impl<'a> SqliteIndexProvider<'a> {
+    /// Returns a new instance of `SqliteIndexProvider` using the provided `rusqlite::Connection`.
     pub fn new(db: &Connection) -> Self {
         SqliteIndexProvider { db, tx: &mut None }
+    }
+
+    /// Returns a new memory-backed instance of `SqliteIndexProvider` (no data will be persisted to disk).
+    pub fn new() -> Self {
+        let db = SqliteUtils::marf_sqlite_open(
+            &":memory:", 
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_MEMORY, 
+            true
+        )?;
+        SqliteIndexProvider::new(&db)
+    }
+
+    /// Returns a new disk-backed instance of `SqliteIndexProvider` using the provided database filepath.
+    pub fn new(db_path: &str) -> Self {
+        let db = SqliteUtils::marf_sqlite_open(
+            db_path, 
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE, 
+            true
+        )?;
+        SqliteIndexProvider::new(&db)
     }
 
     /// Recover from partially-written state -- i.e. blow it away.
     /// Doesn't get called automatically.
     pub fn recover(db_path: &String) -> Result<(), MarfError> {
-        let conn = marf_sqlite_open(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE, false)?;
+        let conn = SqliteUtils::marf_sqlite_open(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE, false)?;
         SqliteUtils::clear_lock_data(&conn)
     }
 

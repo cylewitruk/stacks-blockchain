@@ -1,10 +1,32 @@
-use std::{collections::HashMap, marker::PhantomData, io::Write};
+use std::collections::HashMap;
 
-use stacks_common::{types::chainstate::TrieHash, util::hash::to_hex};
+use stacks_common::{
+    types::chainstate::TrieHash, 
+    util::hash::to_hex
+};
 
-use crate::{MarfTrieId, storage::{TrieStorageConnection, TrieIndexProvider}, MarfValue, MarfError, tries::nodes::TrieNodeID, Trie, utils::Utils, Marf, CursorError, TrieHashExtension, BlockMap, ClarityMarfTrieId};
+use crate::{
+    MarfTrieId, 
+    storage::TrieStorageConnection, 
+    MarfValue, 
+    MarfError, 
+    tries::nodes::TrieNodeID, 
+    Trie, 
+    utils::Utils, 
+    Marf, 
+    CursorError, 
+    TrieHashExtension, 
+    BlockMap, 
+    ClarityMarfTrieId
+};
 
-use super::{TrieLeaf, TriePath, nodes::{TrieNodeType, TrieNode}, TriePtr, TrieCursor};
+use super::{
+    TrieLeaf, 
+    TriePath, 
+    nodes::{TrieNodeType, TrieNode}, 
+    TriePtr, 
+    TrieCursor
+};
 
 #[derive(Debug, Clone)]
 pub enum TrieMerkleProofType<T> {

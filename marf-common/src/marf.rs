@@ -962,9 +962,9 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     }
 
     /// Make a raw transaction to the underlying storage
-    pub fn storage_tx(&'a mut self) -> Result<Transaction<'a>, db_error> {
+    /*pub fn storage_tx(&'a mut self) -> Result<Transaction<'a>, db_error> {
         self.storage.sqlite_tx()
-    }
+    }*/
 
     /// Reopen storage read-only
     pub fn reopen_storage_readonly(&self) -> Result<TrieFileStorage<TTrieId>, MarfError> {
