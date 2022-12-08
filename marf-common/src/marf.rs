@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use stacks_common::{types::chainstate::TrieHash, util::hash::Sha512Trunc256Sum};
 
 use crate::{
@@ -168,7 +170,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
 
     /// Copy the root node from the previous Trie to this Trie, updating its ptrs.
     /// s must point to the target Trie
-    fn root_copy(storage: &mut TrieStorageConnection<TTrieId>, prev_block_hash: &TTrieId) -> Result<(), MarfError> {
+    pub (crate) fn root_copy(storage: &mut TrieStorageConnection<TTrieId>, prev_block_hash: &TTrieId) -> Result<(), MarfError> {
         let (cur_block_hash, cur_block_id) = storage.get_cur_block_and_id();
         storage.open_block(prev_block_hash)?;
         let prev_block_identifier = storage.get_cur_block_identifier().expect(&format!(
@@ -696,7 +698,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
 
     /// Insert a batch of key/value pairs.  More efficient than inserting them individually, since
     /// the trie root hash will only be calculated once (which is an O(log B) operation).
-    fn inner_insert_batch(
+    pub (crate) fn inner_insert_batch(
         conn: &mut TrieStorageTransaction<TTrieId>,
         block_hash: &TTrieId,
         keys: &Vec<String>,

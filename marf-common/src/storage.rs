@@ -15,7 +15,7 @@ pub use trie_storage_transient_data::TrieStorageTransientData;
 pub use trie_file_storage::TrieFileStorage;
 pub use trie_storage_transaction::TrieStorageTransaction;
 pub use uncomitted_state::UncommittedState;
-pub use trie_index_provider::{TrieIndexProvider, TrieBlob};
+pub use trie_index_provider::{TrieIndexProvider, TrieBlob, TrieIndexType};
 pub use trie_file::{TrieFile, TrieFileDisk, TrieFileRAM};
 pub use trie_ram::TrieRAM;
 pub use node_hash_reader::NodeHashReader;

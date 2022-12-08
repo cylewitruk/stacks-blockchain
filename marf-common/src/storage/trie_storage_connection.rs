@@ -356,7 +356,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
         (BLOCK_HEADER_HASH_ENCODED_SIZE as u32) + 4
     }
 
-    fn has_confirmed_block(&self, bhh: &TTrieId) -> Result<bool, crate::MarfError> {
+    pub (crate) fn has_confirmed_block(&self, bhh: &TTrieId) -> Result<bool, crate::MarfError> {
         match self.index.get_confirmed_block_identifier(bhh) {
             Ok(Some(_)) => Ok(true),
             Ok(None) => Ok(false),

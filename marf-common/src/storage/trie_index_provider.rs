@@ -1,8 +1,8 @@
-use std::io::{Read, Write, Seek};
+use std::{io::{Read, Write, Seek}, marker::PhantomData};
 
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}};
+use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}, MarfOpenOpts};
 
 pub trait TrieIndexProvider<TTrieId: MarfTrieId> {
     /// Retrieves the block hash for the specified block identifier from the underlying store.
@@ -76,10 +76,23 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> {
 
     fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError>;
 
-    fn format(&self);
+    fn format(&self) -> Result<(), MarfError>;
 
     fn open_trie_blob(&self, block_id: u32) -> Result<&dyn TrieBlob, MarfError>;
 
+    fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError>;
+
+    fn begin_transaction(&mut self) -> Result<(), MarfError>;
+
+    fn commit_transaction(&mut self) -> Result<(), MarfError>;
+
+    fn rollback_transaction(&mut self) -> Result<(), MarfError>;
 }
 
 pub trait TrieBlob: Read + Seek {}
+
+impl<T: Seek + Read> TrieBlob for T {}
+
+pub enum TrieIndexType<'a> {
+    Sqlite { marf_opts: &'a MarfOpenOpts }
+}

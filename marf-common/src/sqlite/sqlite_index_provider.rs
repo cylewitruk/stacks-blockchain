@@ -1,55 +1,113 @@
-use std::{io::{Read, Write, Seek, self}, fs};
+use std::{fs, io::{self, Read, Seek}};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob}, MarfError, utils::Utils, MarfTrieId};
+use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts};
 
 use super::SqliteUtils;
 
 pub struct SqliteIndexProvider<'a> {
-    db: &'a Connection,
-    tx: &'a mut Option<&'a mut Transaction<'a>>
+    db_path: &'a str,
+    db: Connection,
+    tx: &'a mut Option<&'a mut Transaction<'a>>,
+    marf_opts: &'a MarfOpenOpts
 }
 
 impl<'a> SqliteIndexProvider<'a> {
     /// Returns a new instance of `SqliteIndexProvider` using the provided `rusqlite::Connection`.
-    pub fn new(db: &Connection) -> Self {
-        SqliteIndexProvider { db, tx: &mut None }
+    fn new(db_path: &str, db: Connection, marf_opts: &MarfOpenOpts) -> Self {
+        SqliteIndexProvider { db, tx: &mut None, db_path, marf_opts }
     }
 
     /// Returns a new memory-backed instance of `SqliteIndexProvider` (no data will be persisted to disk).
-    pub fn new() -> Self {
-        let db = SqliteUtils::marf_sqlite_open(
-            &":memory:", 
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_MEMORY, 
-            true
-        )?;
-        SqliteIndexProvider::new(&db)
+    pub fn new_memory(marf_opts: &MarfOpenOpts) -> Result<Self, MarfError> {
+        let db_path = ":memory:";
+        let db = Self::sqlite_open(db_path, false, marf_opts)?;
+        Ok(SqliteIndexProvider::new(db_path, db, &marf_opts))
     }
 
     /// Returns a new disk-backed instance of `SqliteIndexProvider` using the provided database filepath.
-    pub fn new(db_path: &str) -> Self {
-        let db = SqliteUtils::marf_sqlite_open(
-            db_path, 
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE, 
-            true
-        )?;
-        SqliteIndexProvider::new(&db)
+    pub fn new_from_db_path(db_path: &str, readonly: bool, marf_opts: &MarfOpenOpts) -> Result<Self, MarfError> {
+        let db = Self::sqlite_open(db_path, readonly, marf_opts)?;
+        Ok(SqliteIndexProvider::new(db_path, db, &marf_opts))
+    }
+
+    /// Helper method to create the correct SQLite open flags.
+    fn sqlite_open(db_path: &str, readonly: bool, marf_opts: &MarfOpenOpts) -> Result<Connection, MarfError> {
+        let mut create_flag = false;
+        let open_flags = if db_path != ":memory:" {
+            match fs::metadata(db_path) {
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::NotFound {
+                        // need to create
+                        if !readonly {
+                            create_flag = true;
+                            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
+                        } else {
+                            return Err(MarfError::NotFoundError);
+                        }
+                    } else {
+                        return Err(MarfError::IOError(e));
+                    }
+                }
+                Ok(_md) => {
+                    // can just open
+                    if !readonly {
+                        OpenFlags::SQLITE_OPEN_READ_WRITE
+                    } else {
+                        OpenFlags::SQLITE_OPEN_READ_ONLY
+                    }
+                }
+            }
+        } else {
+            create_flag = true;
+            if !readonly {
+                OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
+            } else {
+                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_CREATE
+            }
+        };
+
+        let mut db = SqliteUtils::marf_sqlite_open(db_path, open_flags, false)?;
+
+        // Create tables if needed
+        if create_flag {
+            SqliteUtils::create_tables_if_needed(&mut db)?;
+        }
+
+        // Migrate db if needed
+        let prev_schema_version = SqliteUtils::migrate_tables_if_needed(&mut db)?;
+        if prev_schema_version != super::SQL_MARF_SCHEMA_VERSION || marf_opts.force_db_migrate {
+            if let Some(blobs) = blobs.as_mut() {
+                if TrieFile::exists(&db_path)? {
+                    // migrate blobs out of the old DB
+                    blobs.export_trie_blobs::(&db, &db_path)?;
+                }
+            }
+        }
+        if SqliteUtils::detect_partial_migration(&db)? {
+            panic!("PARTIAL MIGRATION DETECTED! This is an irrecoverable error. You will need to restart your node from genesis.");
+        }
+
+        Ok(db)
     }
 
     /// Recover from partially-written state -- i.e. blow it away.
     /// Doesn't get called automatically.
     pub fn recover(db_path: &String) -> Result<(), MarfError> {
         let conn = SqliteUtils::marf_sqlite_open(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE, false)?;
-        SqliteUtils::clear_lock_data(&conn)
+        SqliteUtils::clear_lock_data(&conn)?;
+        Ok(())
     }
 
+    /// Returns true if this provider has an open transaction towards the underlying store, otherwise false.
     pub fn has_transaction(&self) -> bool {
         !self.tx.is_none()
     }
 
-    pub fn sqlite_get_active_transaction(&self) -> &mut Transaction {
+    /// Returns the currently open transaction.  Panics if there is no active transaction.
+    pub (in crate::sqlite) fn sqlite_get_active_transaction(self) -> &'a mut Transaction<'a> {
         if !self.has_transaction() {
             panic!("BUG: Attempted to fetch SQLite transaction without an active transaction.")
         }
@@ -57,29 +115,32 @@ impl<'a> SqliteIndexProvider<'a> {
         self.tx.unwrap()
     }
 
-    pub fn sqlite_begin_transaction(&self) -> &mut Transaction {
+    /// Begins a new SQLite transaction and sets the `tx` field on this struct.
+    pub (in crate::sqlite) fn sqlite_begin_transaction(&mut self) -> Result<&mut Transaction, MarfError> {
         if self.has_transaction() {
             panic!("BUG: Attempted to begin SQLite transaction when one already exists.")
         }
 
-        let trx = self.db.transaction()
-            .or_else(|op| panic!("BUG: Failed to begin SQLite transaction."));
+        let trx = self.db.transaction()?;
 
-        self.tx = Some(&trx);
+        self.tx = &mut Some(&mut trx);
 
-        &trx
+        Ok(&mut trx)
     }
 
-    pub fn sqlite_commit(&self) {
+    /// Commits the currently active transaction and unsets the `tx` field on this struct.
+    pub (in crate::sqlite) fn sqlite_commit(&mut self) {
         if !self.has_transaction() {
             panic!("BUG: Attempted to commit SQLite transaction without an active transaction.")
         }
 
         self.tx.unwrap().commit()
             .expect("CORRUPTION: Failed to commit MARF.");
+        self.tx = &mut None;
     }
 
-    pub fn sqlite_rollback(&self) {
+    /// Rolls-back the currently active transaction and unsets the `tx` field on this struct.
+    pub (in crate::sqlite) fn sqlite_rollback(&mut self) {
         if !self.has_transaction() {
             panic!("BUG: Attempted to rollback SQLite transaction without an active transaction.")
         }
@@ -307,7 +368,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         let qry = "SELECT external_offset, external_length FROM marf_data WHERE block_id = ?1";
         let args: &[&dyn ToSql] = &[&block_id];
 
-        let (offset, length) = SqliteUtils::query_row(self.db, qry, args)?
+        let (offset, length) = SqliteUtils::query_row(&self.db, qry, args)?
             .ok_or(MarfError::NotFoundError)?;
 
         Ok((offset, length))
@@ -317,7 +378,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         let qry = "SELECT external_offset, external_length FROM marf_data WHERE block_hash = ?1";
         let args: &[&dyn ToSql] = &[bhh];
 
-        let (offset, length) = SqliteUtils::query_row(self.db, qry, args)?
+        let (offset, length) = SqliteUtils::query_row(&self.db, qry, args)?
             .ok_or(MarfError::NotFoundError)?;
 
         Ok((offset, length))
@@ -325,7 +386,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
 
     fn get_external_blobs_length(&self) -> Result<u64, crate::MarfError> {
         let qry = "SELECT (external_offset + external_length) AS blobs_length FROM marf_data ORDER BY external_offset DESC LIMIT 1";
-        let max_len = SqliteUtils::query_row(self.db, qry, NO_PARAMS)?
+        let max_len = SqliteUtils::query_row(&self.db, qry, NO_PARAMS)?
             .unwrap_or(0);
 
         Ok(max_len)
@@ -362,7 +423,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         block_hash: &TTrieId,
         data: &[u8],
     ) -> Result<u32, MarfError> {
-        if let Ok(block_id) = SqliteUtils::get_mined_block_identifier(self.db, block_hash) {
+        if let Ok(block_id) = SqliteUtils::get_mined_block_identifier(&self.db, block_hash) {
             // already exists; update
             let args: &[&dyn ToSql] = &[&data, &block_id];
             let mut s = self.db.prepare("UPDATE mined_blocks SET data = ? WHERE block_id = ?")?;
@@ -376,7 +437,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
                 .expect("EXHAUSTION: MARF cannot track more than 2**31 - 1 blocks");
         };
     
-        let block_id = SqliteUtils::get_mined_block_identifier(self.db, block_hash)?;
+        let block_id = SqliteUtils::get_mined_block_identifier(&self.db, block_hash)?;
     
         debug!(
             "Wrote mined block trie {} to rowid {}",
@@ -490,8 +551,30 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(&blob)
     }
 
-    fn format(&self) {
+    fn format(&self) -> Result<(), MarfError> {
         let tx = self.sqlite_get_active_transaction();
-        SqliteUtils::clear_tables(tx)
+        SqliteUtils::clear_tables(tx)?;
+        Ok(())
+    }
+
+    fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError> {
+        let db = Self::sqlite_open(&self.db_path, true, self.marf_opts)?;
+        let provider = SqliteIndexProvider::new_from_db_path(&self.db_path, true, self.marf_opts)?;
+        Ok(&provider)
+    }
+
+    fn begin_transaction(&mut self) -> Result<(), MarfError> {
+        self.sqlite_begin_transaction();
+        Ok(())
+    }
+
+    fn commit_transaction(&mut self) -> Result<(), MarfError> {
+        self.sqlite_commit();
+        Ok(())
+    }
+
+    fn rollback_transaction(&mut self) -> Result<(), MarfError> {
+        self.sqlite_rollback();
+        Ok(())
     }
 }

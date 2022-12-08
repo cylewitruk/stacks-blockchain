@@ -83,7 +83,7 @@ impl<'a, TTrieId> MarfTransaction<'a, TTrieId>
     }
 
     #[cfg(test)]
-    fn commit_tx(self) {
+    pub (crate) fn commit_tx(self) {
         self.storage.commit_tx()
     }
 

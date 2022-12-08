@@ -55,7 +55,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
     /// reopen this transaction as a read-only marf.
     ///  _does not_ preserve the cur_block/open tip
     pub fn reopen_readonly(&self) -> Result<TrieFileStorage<TTrieId>, MarfError> {
-        let db = marf_sqlite_open(&self.db_path, OpenFlags::SQLITE_OPEN_READ_ONLY, false)?;
+        let db = self.index.reopen_readonly()?;
         let blobs = if self.blobs.is_some() {
             Some(TrieFile::from_db_path(&self.db_path, true)?)
         } else {
@@ -108,15 +108,15 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
     }
 
     /// Run `cls` with a mutable reference to the inner trie blobs opt.
-    /*fn with_trie_blobs<F, R>(&mut self, cls: F) -> R
+    fn with_trie_blobs<F, R>(&mut self, cls: F) -> R
     where
-        F: FnOnce(&Connection, &mut Option<&mut TrieFile>) -> R,
+        F: FnOnce(&mut Option<&mut TrieFile>) -> R,
     {
         let mut blobs = self.blobs.take();
-        let res = cls(self.index, &mut blobs);
+        let res = cls(&mut blobs);
         self.blobs = blobs;
         res
-    }*/
+    }
 
     /// Inner method for flushing the UncommittedState's TrieRAM to disk.
     fn inner_flush(&mut self, flush_options: FlushOptions<'_, TTrieId>) -> Result<(), MarfError> {
@@ -145,8 +145,8 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
                     if self.unconfirmed() {
                         return Err(MarfError::UnconfirmedError);
                     }
-                    self.with_trie_blobs(|db, blobs| match blobs {
-                        Some(blobs) => blobs.store_trie_blob(&db, &bhh, &buffer),
+                    self.with_trie_blobs(|blobs| match blobs {
+                        Some(blobs) => blobs.store_trie_blob(self.index, &bhh, &buffer),
                         None => {
                             test_debug!("Stored trie blob {} to db", &bhh);
                             self.index.write_trie_blob(&bhh, &buffer)
@@ -170,8 +170,8 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
                         // switch over state
                         self.data.retarget_block(real_bhh.clone());
                     }
-                    self.with_trie_blobs(|db, blobs| match blobs {
-                        Some(blobs) => blobs.store_trie_blob(db, real_bhh, &buffer),
+                    self.with_trie_blobs(|blobs| match blobs {
+                        Some(blobs) => blobs.store_trie_blob(self.index, real_bhh, &buffer),
                         None => {
                             test_debug!("Stored trie blob {} to db", real_bhh);
                             self.index.write_trie_blob(real_bhh, &buffer)
@@ -397,10 +397,10 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
     }*/
 
     pub fn commit_tx(self) {
-        self.index.commit()
+        self.index.commit_transaction();
     }
 
     pub fn rollback(self) {
-        self.index.rollback()
+        self.index.rollback_transaction();
     }
 }

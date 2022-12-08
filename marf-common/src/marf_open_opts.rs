@@ -8,10 +8,14 @@ pub struct MarfOpenOpts {
     pub hash_calculation_mode: TrieHashCalculationMode,
     /// Cache strategy to use
     pub cache_strategy: String,
-    /// store trie blobs externally from the DB, in a flat file
+    /// Store trie blobs externally from the DB, in a flat file (with a `.blobs` extension)
     pub external_blobs: bool,
-    /// unconditionally do a DB migration (used for testing)
+    /// Unconditionally do a DB migration (used for testing)
     pub force_db_migrate: bool,
+    /// The file path of the index
+    pub db_path: String,
+    /// The index storage type
+    pub trie_index_type: TrieIndexType
 }
 
 impl MarfOpenOpts {
