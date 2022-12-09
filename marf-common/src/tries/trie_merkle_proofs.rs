@@ -42,15 +42,15 @@ define_u8_enum!( TrieMerkleProofTypeIndicator {
     Node4 = 0, Node16 = 1, Node48 = 2, Node256 = 3, Leaf = 4, Shunt = 5
 });
 
-impl<T: MarfTrieId> ProofTrieNode<T> {
-    fn ptrs(&self) -> &[ProofTriePtr<T>] {
+impl<TTrieId: MarfTrieId> ProofTrieNode<TTrieId> {
+    fn ptrs(&self) -> &[ProofTriePtr<TTrieId>] {
         &self.ptrs
     }
 
-    fn try_from_trie_node<N: TrieNode, M: BlockMap>(
+    fn try_from_trie_node<N: TrieNode, M: BlockMap<TTrieId>>(
         other: &N,
         block_map: &mut M,
-    ) -> Result<ProofTrieNode<T>, MarfError> {
+    ) -> Result<ProofTrieNode<TTrieId>, MarfError> {
         let id = other.id();
         let path = other.path().clone();
         let ptrs: Result<Vec<_>, MarfError> = other
@@ -66,11 +66,11 @@ impl<T: MarfTrieId> ProofTrieNode<T> {
     }
 }
 
-impl<T: MarfTrieId> ProofTriePtr<T> {
-    fn try_from_trie_ptr<M: BlockMap>(
+impl<TTrieId: MarfTrieId> ProofTriePtr<TTrieId> {
+    fn try_from_trie_ptr<M: BlockMap<TTrieId>>(
         other: &TriePtr,
         block_map: &mut M,
-    ) -> Result<ProofTriePtr<T>, MarfError> {
+    ) -> Result<ProofTriePtr<TTrieId>, MarfError> {
         let id = other.id;
         let chr = other.chr;
         let back_block = if Utils::is_backptr(id) {

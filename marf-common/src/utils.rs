@@ -115,7 +115,7 @@ impl Utils {
         Ok(nid)
     }
 
-    pub fn ptrs_consensus_hash<W: Write, M: BlockMap>(
+    pub fn ptrs_consensus_hash<TTrieId: MarfTrieId, W: Write, M: BlockMap<TTrieId>>(
         ptrs: &[TriePtr],
         map: &mut M,
         w: &mut W,
@@ -244,7 +244,7 @@ impl Utils {
         ret
     }
 
-    pub fn get_nodetype_hash_bytes<T: MarfTrieId, M: BlockMap>(
+    pub fn get_nodetype_hash_bytes<TTrieId: MarfTrieId, M: BlockMap<TTrieId>>(
         node: &TrieNodeType,
         child_hash_bytes: &Vec<TrieHash>,
         map: &mut M,

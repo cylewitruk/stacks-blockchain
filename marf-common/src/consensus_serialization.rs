@@ -27,7 +27,7 @@ pub trait ConsensusSerializable<M> {
     }
 }
 
-impl<TTrieId: TrieNode, TBlockMap: BlockMap> ConsensusSerializable<TBlockMap> for TTrieId {
+impl<TTrieId: TrieNode, TBlockMap: BlockMap<TTrieId>> ConsensusSerializable<TBlockMap> for TTrieId {
     fn write_consensus_bytes<W: Write>(&self, map: &mut TBlockMap, w: &mut W) -> Result<(), MarfError> {
         w.write_all(&[self.id()])?;
         Utils::ptrs_consensus_hash(self.ptrs(), map, w)?;

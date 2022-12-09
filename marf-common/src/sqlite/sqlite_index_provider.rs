@@ -3,7 +3,7 @@ use std::{fs, io};
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts};
+use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap};
 
 use super::SqliteUtils;
 
@@ -11,7 +11,7 @@ pub struct SqliteIndexProvider<'a> {
     db_path: &'a str,
     db: Connection,
     tx: &'a mut Option<&'a mut Transaction<'a>>,
-    marf_opts: &'a MarfOpenOpts<'a>
+    marf_opts: &'a MarfOpenOpts
 }
 
 impl<'a> SqliteIndexProvider<'a> {
@@ -530,6 +530,15 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(true)
     }
 
+    fn read_node_hash_bytes(
+        &self,
+        w: &mut dyn io::Write,
+        block_id: u32,
+        ptr: &crate::tries::TriePtr,
+    ) -> Result<(), MarfError> {
+        todo!()
+    }
+
     fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError> {
         debug!("Drop unconfirmed trie sqlite blob {}", bhh);
         self.db.execute(
@@ -537,6 +546,12 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
             &[bhh],
         )?;
         debug!("Dropped unconfirmed trie sqlite blob {}", bhh);
+        Ok(())
+    }
+
+    fn format(&self) -> Result<(), MarfError> {
+        let tx = self.sqlite_get_active_transaction();
+        SqliteUtils::clear_tables(tx)?;
         Ok(())
     }
 
@@ -549,12 +564,6 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
             true,
         )?;
         Ok(&mut blob)
-    }
-
-    fn format(&self) -> Result<(), MarfError> {
-        let tx = self.sqlite_get_active_transaction();
-        SqliteUtils::clear_tables(tx)?;
-        Ok(())
     }
 
     fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError> {
@@ -576,5 +585,27 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
     fn rollback_transaction(&mut self) -> Result<(), MarfError> {
         self.sqlite_rollback();
         Ok(())
+    }
+}
+
+impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for SqliteIndexProvider<'a> {
+    fn get_block_hash(&self, id: u32) -> Result<&TTrieId, MarfError> {
+        todo!()
+    }
+
+    fn get_block_hash_caching(&mut self, id: u32) -> Result<&TTrieId, MarfError> {
+        todo!()
+    }
+
+    fn is_block_hash_cached(&self, id: u32) -> bool {
+        todo!()
+    }
+
+    fn get_block_id(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
+        todo!()
+    }
+
+    fn get_block_id_caching(&mut self, bhh: &TTrieId) -> Result<u32, MarfError> {
+        todo!()
     }
 }

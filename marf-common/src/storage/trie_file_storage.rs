@@ -1,6 +1,6 @@
 use crate::{
     MarfTrieId, MarfError, storage::{TrieStorageTransientData, TrieIndexType}, BlockMap, 
-    TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark, MarfOpenOpts
+    TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark, MarfOpenOpts, sqlite::SqliteIndexProvider
 };
 
 use super::{TrieIndexProvider, TrieFile, TrieStorageConnection, TrieStorageTransaction};
@@ -70,11 +70,14 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
         marf_opts: MarfOpenOpts,
     ) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         let mut create_flag = false;
+        let mut index: &dyn TrieIndexProvider<TTrieId>;
 
         match marf_opts.trie_index_type {
-            TrieIndexType::Sqlite { db_path, marf_opts } => SqliteTrieIndex
+            TrieIndexType::Sqlite => {
+                let index = SqliteIndexProvider::new_from_db_path(&format!("{}.sqlite", db_path), readonly, &marf_opts);
+            }
         }
-        let db_path = db_path.to_string();
+        
 
         // Create tables if needed
 
@@ -95,7 +98,7 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
         let cache = TrieCache::new(&marf_opts.cache_strategy);
 
         let ret = TrieFileStorage {
-            db_path,
+            db_path: db_path.to_string(),
             index,
             cache,
             blobs,
@@ -233,9 +236,7 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap for TrieFileStorage<'a, TTrieId> {
-    type TrieId = TTrieId;
-
+impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieFileStorage<'a, TTrieId> {
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
         //trie_sql::get_block_hash(&self.db, id)
         self.index.get_block_hash(id)

@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{errors::MarfError, BlockMap, tries::{TrieLeaf, TriePtr}, consensus_serialization::ConsensusSerializable};
+use crate::{errors::MarfError, BlockMap, tries::{TrieLeaf, TriePtr}, consensus_serialization::ConsensusSerializable, MarfTrieId};
 
 use super::{TrieNode4, TrieNode16, TrieNode48, TrieNode256, TrieNode};
 
@@ -73,7 +73,7 @@ impl TrieNodeType {
         with_node!(self, ref data, data.write_bytes(w))
     }
 
-    pub fn write_consensus_bytes<W: Write, M: BlockMap>(
+    pub fn write_consensus_bytes<TTrieId: MarfTrieId, W: Write, M: BlockMap<TTrieId>>(
         &self,
         map: &mut M,
         w: &mut W,

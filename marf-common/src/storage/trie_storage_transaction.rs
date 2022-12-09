@@ -27,8 +27,7 @@ impl<'a, TTrieId: MarfTrieId> DerefMut for TrieStorageTransaction<'a, TTrieId> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap for TrieStorageTransaction<'a, TTrieId> {
-    type TrieId = TTrieId;
+impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieStorageTransaction<'a, TTrieId> {
 
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
         self.deref().get_block_hash(id)
