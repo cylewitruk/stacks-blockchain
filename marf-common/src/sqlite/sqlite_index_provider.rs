@@ -210,21 +210,7 @@ impl<'a> SqliteIndexProvider<'a> {
 }
 
 impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider<'a> {
-    /// Retrieves the block hash for the specified block id.
-    fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, crate::MarfError> {
-        let result = self.db
-            .query_row(
-                "SELECT block_hash FROM marf_data WHERE block_id = ?",
-                &[local_id],
-                |row| row.get("block_hash"),
-            )
-            .optional()?;
-            
-        result.ok_or_else(|| {
-            error!("Failed to get block header hash of local ID {}", local_id);
-            MarfError::NotFoundError
-        })
-    }
+    
 
     fn get_block_identifier(&self, bhh: &TTrieId) -> Result<u32, crate::MarfError> {
         self.db.query_row(
@@ -589,8 +575,20 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
 }
 
 impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for SqliteIndexProvider<'a> {
-    fn get_block_hash(&self, id: u32) -> Result<&TTrieId, MarfError> {
-        todo!()
+    /// Retrieves the block hash for the specified block id.
+    fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, MarfError> {
+        let result = self.db
+            .query_row(
+                "SELECT block_hash FROM marf_data WHERE block_id = ?",
+                &[local_id],
+                |row| row.get("block_hash"),
+            )
+            .optional()?;
+            
+        result.ok_or_else(|| {
+            error!("Failed to get block header hash of local ID {}", local_id);
+            MarfError::NotFoundError
+        })
     }
 
     fn get_block_hash_caching(&mut self, id: u32) -> Result<&TTrieId, MarfError> {

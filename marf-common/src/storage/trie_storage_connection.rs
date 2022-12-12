@@ -542,7 +542,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
                     MarfError::NotFoundError
                 })?,
             };
-            let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
+            let res = TrieStorageConnection::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
                 node,

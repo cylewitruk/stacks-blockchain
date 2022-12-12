@@ -1,8 +1,18 @@
 use std::{io::{Write, Read}, fmt, ops::Deref};
 
-use stacks_common::{types::chainstate::TrieHash, codec::{StacksMessageCodec, read_next, Error as CodecError}};
+use stacks_common::{
+    types::chainstate::TrieHash, 
+    codec::{StacksMessageCodec, read_next, Error as CodecError}
+};
 
-use crate::{MarfError, BlockMap, utils::Utils, tries::{nodes::TrieNode, ProofTrieNode, trie_merkle_proofs::{TrieMerkleProofType, TrieMerkleProofTypeIndicator}, TrieMerkleProof, ProofTriePtr, TrieLeaf}, MarfTrieId};
+use crate::{
+    MarfError, BlockMap, utils::Utils, 
+    tries::{
+        nodes::TrieNode, ProofTrieNode, 
+        trie_merkle_proofs::{TrieMerkleProofType, TrieMerkleProofTypeIndicator}, 
+        TrieMerkleProof, ProofTriePtr, TrieLeaf
+    }, 
+    MarfTrieId};
 
 /// Trait for types that can serialize to consensus bytes
 /// This is implemented by `TrieNode`s and `ProofTrieNode`s
@@ -10,7 +20,7 @@ use crate::{MarfError, BlockMap, utils::Utils, tries::{nodes::TrieNode, ProofTri
 ///  both types.
 /// The type `M` is used for any additional data structures required
 ///   (BlockHashMap for TrieNode and () for ProofTrieNode)
-pub trait ConsensusSerializable<M> {
+pub trait ConsensusSerializable<M, TTrieId: MarfTrieId> {
     /// Encode the consensus-relevant bytes of this node and write it to w.
     fn write_consensus_bytes<W: Write>(
         &self,
@@ -27,7 +37,7 @@ pub trait ConsensusSerializable<M> {
     }
 }
 
-impl<TTrieId: TrieNode, TBlockMap: BlockMap<TTrieId>> ConsensusSerializable<TBlockMap> for TTrieId {
+impl<TTrieId: MarfTrieId, TBlockMap: BlockMap<TTrieId>, T: TrieNode> ConsensusSerializable<TBlockMap, TTrieId> for T {
     fn write_consensus_bytes<W: Write>(&self, map: &mut TBlockMap, w: &mut W) -> Result<(), MarfError> {
         w.write_all(&[self.id()])?;
         Utils::ptrs_consensus_hash(self.ptrs(), map, w)?;
@@ -35,7 +45,15 @@ impl<TTrieId: TrieNode, TBlockMap: BlockMap<TTrieId>> ConsensusSerializable<TBlo
     }
 }
 
-impl<T: MarfTrieId> ConsensusSerializable<()> for ProofTrieNode<T> {
+/*impl<TNode: TrieNode, TBlockMap: BlockMap<TNode>> ConsensusSerializable<TBlockMap> for TNode {
+    fn write_consensus_bytes<W: Write>(&self, map: &mut TBlockMap, w: &mut W) -> Result<(), MarfError> {
+        w.write_all(&[self.id()])?;
+        Utils::ptrs_consensus_hash(self.ptrs(), map, w)?;
+        Utils::write_path_to_bytes(self.path().as_slice(), w)
+    }
+}*/
+
+impl<T: MarfTrieId> ConsensusSerializable<(), T> for ProofTrieNode<T> {
     fn write_consensus_bytes<W: Write>(
         &self,
         _additional_data: &mut (),

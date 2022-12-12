@@ -20,7 +20,7 @@ use crate::{
     }, 
     storage::TrieStorageConnection, 
     consensus_serialization::ConsensusSerializable, 
-    MarfTrieId, 
+    MarfTrieId, ClarityMarfTrieId, 
 };
 
 pub struct Utils;
@@ -115,7 +115,7 @@ impl Utils {
         Ok(nid)
     }
 
-    pub fn ptrs_consensus_hash<TTrieId: MarfTrieId, W: Write, M: BlockMap<TTrieId>>(
+    pub fn ptrs_consensus_hash<T: MarfTrieId, W: Write, M: BlockMap<T>>(
         ptrs: &[TriePtr],
         map: &mut M,
         w: &mut W,
@@ -201,7 +201,7 @@ impl Utils {
 
 
     /// Calculate the hash of a TrieNode, given its childrens' hashes.
-    pub fn get_node_hash<M, T: ConsensusSerializable<M> + std::fmt::Debug>(
+    pub fn get_node_hash<TTrieId: MarfTrieId, M, T: ConsensusSerializable<M, TTrieId> + std::fmt::Debug>(
         node: &T,
         child_hashes: &Vec<TrieHash>,
         map: &mut M,

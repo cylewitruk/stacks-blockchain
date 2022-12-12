@@ -6,7 +6,7 @@ use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}, BlockM
 
 pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
     /// Retrieves the block hash for the specified block identifier from the underlying store.
-    fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, MarfError>;
+    //fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, MarfError>;
 
     /// Retrieves the block identifier for the specified block hash from the underlying store.
     fn get_block_identifier(&self, bhh: &TTrieId) -> Result<u32, MarfError>;
