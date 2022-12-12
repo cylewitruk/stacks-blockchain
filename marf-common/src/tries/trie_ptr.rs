@@ -2,7 +2,7 @@ use std::{io::Write};
 
 use stacks_common::types::chainstate::BLOCK_HEADER_HASH_ENCODED_SIZE;
 
-use crate::{utils::Utils, errors::MarfError, BlockMap, ClarityMarfTrieId, MarfTrieId};
+use crate::{utils::Utils, errors::MarfError, BlockMap, MarfTrieId};
 
 pub const TRIEPTR_SIZE: usize = 10; // full size of a TriePtr
 

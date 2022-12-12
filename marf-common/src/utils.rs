@@ -10,6 +10,7 @@ use crate::{
     TrieHasher, 
     errors::MarfError, 
     BlockMap, 
+    MarfTrieId, 
     tries::{
         TriePtr, 
         nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, 
@@ -20,7 +21,6 @@ use crate::{
     }, 
     storage::TrieStorageConnection, 
     consensus_serialization::ConsensusSerializable, 
-    MarfTrieId, ClarityMarfTrieId, 
 };
 
 pub struct Utils;

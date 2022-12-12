@@ -16,8 +16,7 @@ use crate::{
     Marf, 
     CursorError, 
     TrieHashExtension, 
-    BlockMap, 
-    ClarityMarfTrieId
+    BlockMap
 };
 
 use super::{

@@ -5,9 +5,30 @@ use std::{
 #[cfg(test)]
 use std::collections::HashMap;
 
-use stacks_common::{types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE, TRIEHASH_ENCODED_SIZE}, util::hash::to_hex};
+use stacks_common::{
+    types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE, TRIEHASH_ENCODED_SIZE}, 
+    util::hash::to_hex
+};
 
-use crate::{MarfTrieId, BlockMap, MarfError, TrieCache, tries::{TrieHashCalculationMode, TriePtr, nodes::{TrieNodeID, TrieNodeType, TrieNode}}, diagnostics::TrieBenchmark, utils::Utils, storage::{TrieFileNodeHashReader, TrieHashMapCursor, TrieCursor}, TrieHashExtension, ClarityMarfTrieId};
+use crate::{
+    MarfTrieId, BlockMap, MarfError, TrieCache, TrieHashExtension,
+    tries::{
+        TrieHashCalculationMode, 
+        TriePtr, 
+        nodes::{
+            TrieNodeID, 
+            TrieNodeType, 
+            TrieNode
+        }
+    }, 
+    diagnostics::TrieBenchmark, 
+    utils::Utils, 
+    storage::{
+        TrieFileNodeHashReader, 
+        TrieHashMapCursor, 
+        TrieCursor
+    }
+};
 
 use super::{TrieStorageTransientData, TrieIndexProvider, TrieFile, UncommittedState, node_hash_reader::NodeHashReader};
 

@@ -4,74 +4,10 @@ use stacks_common::types::chainstate::TrieHash;
 
 use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}, utils::Utils};
 
-use super::TrieIndexProvider;
+use super::{TrieIndexProvider, TrieFileDisk, TrieFileRAM};
 
 /// Mapping between block IDs and trie offsets
 pub type TrieIdOffsets = HashMap<u32, u64>;
-
-/// Handle to a flat file containing Trie blobs
-pub struct TrieFileDisk {
-    fd: fs::File,
-    path: String,
-    trie_offsets: TrieIdOffsets,
-}
-
-/// Boilerplate Write implementation for TrieFileDisk.  Plumbs through to the inner fd.
-impl Write for TrieFileDisk {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.fd.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.fd.flush()
-    }
-}
-
-/// Boilerplate Read implementation for TrieFileDisk.  Plumbs through to the inner fd.
-impl Read for TrieFileDisk {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.fd.read(buf)
-    }
-}
-
-/// Boilerplate Seek implementation for TrieFileDisk.  Plumbs through to the inner fd
-impl Seek for TrieFileDisk {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.fd.seek(pos)
-    }
-}
-
-/// Handle to a flat in-memory buffer containing Trie blobs (used for testing)
-pub struct TrieFileRAM {
-    fd: Cursor<Vec<u8>>,
-    readonly: bool,
-    trie_offsets: TrieIdOffsets,
-}
-
-/// Boilerplate Seek implementation for TrieFileDisk.  Plumbs through to the inner fd
-impl Seek for TrieFileRAM {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.fd.seek(pos)
-    }
-}
-
-/// Boilerplate Read implementation for TrieFileRAM.  Plumbs through to the inner fd.
-impl Read for TrieFileRAM {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.fd.read(buf)
-    }
-}
-
-/// Boilerplate Write implementation for TrieFileRAM.  Plumbs through to the inner fd.
-impl Write for TrieFileRAM {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.fd.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.fd.flush()
-    }
-}
 
 pub trait TrieFileTrait<TTrieId: MarfTrieId, TIndex: TrieIndexProvider<TTrieId>> {
     /// Does the TrieFile exist at the expected path?
@@ -385,10 +321,31 @@ impl TrieFile {
         &mut self,
         db: &dyn TrieIndexProvider<TTrieId>,
     ) -> Result<Vec<(TrieHash, TTrieId)>, MarfError> {
-        use rusqlite::NO_PARAMS;
         use crate::storage::TrieStorageConnection;
 
-        let mut s =
+        let mut rows_raw = db.read_all_block_hashes_and_offsets()?;
+        let result = rows_raw.iter().map(|x| {
+            let block_hash = x.0;
+            let offset = x.1;
+
+            let start = TrieStorageConnection::<TTrieId>::root_ptr_disk() as u64;
+
+            self.seek(SeekFrom::Start(offset + start))?;
+            let hash_buff = Utils::read_hash_bytes(self)?;
+            let root_hash = TrieHash(hash_buff);
+
+            trace!(
+                "Root hash for block {} at offset {} is {}",
+                &block_hash,
+                offset + start,
+                &root_hash
+            );
+            Ok((root_hash, block_hash))
+        });
+
+        result.collect()
+
+        /*let mut s =
             db.prepare("SELECT block_hash, external_offset FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash")?;
         let rows = s.query_and_then(NO_PARAMS, |row| {
             let block_hash: TTrieId = row.get_unwrap("block_hash");
@@ -408,7 +365,7 @@ impl TrieFile {
             );
             Ok((root_hash, block_hash))
         })?;
-        rows.collect()
+        rows.collect()*/
     }
 
     /// Append a serialized trie to the TrieFile.

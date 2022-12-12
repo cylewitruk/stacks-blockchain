@@ -94,6 +94,9 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
     fn commit_transaction(&mut self) -> Result<(), MarfError>;
 
     fn rollback_transaction(&mut self) -> Result<(), MarfError>;
+
+    #[cfg(test)]
+    fn read_all_block_hashes_and_offsets(&self) -> Result<Vec<(TTrieId, u64)>, MarfError>;
 }
 
 pub trait TrieBlob: Read + Seek {}

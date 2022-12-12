@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::{fs, io::{self, SeekFrom}};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
@@ -255,7 +255,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(TrieHash(hash_buff))
     }
 
-    fn read_all_block_hashes_and_roots(&self) -> Result<Vec<(stacks_common::types::chainstate::TrieHash, TTrieId)>, crate::MarfError> {
+    fn read_all_block_hashes_and_roots(&self) -> Result<Vec<(TrieHash, TTrieId)>, crate::MarfError> {
         let mut s = self.db.prepare(
             "SELECT block_hash, data FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash",
         )?;
@@ -571,6 +571,20 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
     fn rollback_transaction(&mut self) -> Result<(), MarfError> {
         self.sqlite_rollback();
         Ok(())
+    }
+
+    #[cfg(test)]
+    fn read_all_block_hashes_and_offsets(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
+
+        let mut s =
+            self.db.prepare("SELECT block_hash, external_offset FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash")?;
+        let rows = s.query_and_then(NO_PARAMS, |row| {
+            let block_hash: TTrieId = row.get_unwrap("block_hash");
+            let offset_i64: i64 = row.get_unwrap("external_offset");
+            let offset = offset_i64 as u64;
+            Ok((block_hash, offset))
+        })?;
+        rows.collect()
     }
 }
 
