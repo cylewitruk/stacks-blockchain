@@ -4,7 +4,7 @@ use sha2::Digest;
 use stacks_common::types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE};
 
 use crate::{
-    tries::{nodes::{TrieNodeType, TrieNodeID}, TrieHashCalculationMode, TriePtr}, 
+    tries::{TrieNodeType, TrieNodeID, TrieHashCalculationMode, TriePtr}, 
     MarfTrieId, MarfError, Trie, utils::Utils, TrieHashExtension, BlockMap,
     storage::UncommittedState, 
 };

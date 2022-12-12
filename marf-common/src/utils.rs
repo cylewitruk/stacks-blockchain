@@ -13,7 +13,7 @@ use crate::{
     MarfTrieId, 
     tries::{
         TriePtr, 
-        nodes::{TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode}, 
+        TrieNodeID, TrieNodeType, TrieNode4, TrieNode16, TrieNode256, TrieNode48, TrieNode, 
         TRIEPTR_SIZE, 
         TRIEPATH_MAX_LEN, 
         TrieLeaf, 

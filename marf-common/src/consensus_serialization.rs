@@ -8,8 +8,8 @@ use stacks_common::{
 use crate::{
     MarfError, BlockMap, utils::Utils, 
     tries::{
-        nodes::TrieNode, ProofTrieNode, 
-        trie_merkle_proofs::{TrieMerkleProofType, TrieMerkleProofTypeIndicator}, 
+        TrieNode, ProofTrieNode, 
+        TrieMerkleProofType, TrieMerkleProofTypeIndicator, 
         TrieMerkleProof, ProofTriePtr, TrieLeaf
     }, 
     MarfTrieId};

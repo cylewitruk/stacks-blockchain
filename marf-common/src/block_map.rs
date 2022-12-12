@@ -3,7 +3,6 @@ use stacks_common::types::chainstate::BlockHeaderHash;
 
 use crate::{MarfError, MarfTrieId};
 
-
 pub trait BlockMap<T: MarfTrieId> {
     fn get_block_hash(&self, id: u32) -> Result<T, MarfError>;
     fn get_block_hash_caching(&mut self, id: u32) -> Result<&T, MarfError>;

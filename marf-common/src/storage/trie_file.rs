@@ -2,7 +2,7 @@ use std::{io::{SeekFrom, Cursor, self, Read, Write, Seek}, fs::{self, OpenOption
 
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}, utils::Utils};
+use crate::{MarfError, MarfTrieId, tries::{TrieNodeType, TriePtr}, utils::Utils};
 
 use super::{TrieIndexProvider, TrieFileDisk, TrieFileRAM};
 

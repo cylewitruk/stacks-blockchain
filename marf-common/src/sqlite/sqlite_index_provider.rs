@@ -1,9 +1,9 @@
-use std::{fs, io::{self, SeekFrom}};
+use std::{fs, io};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap};
+use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::TrieNodeType};
 
 use super::SqliteUtils;
 
@@ -296,7 +296,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         .map_err(|e| e.into())
     }
 
-    fn read_node_type(&self, block_id: u32, ptr: &crate::tries::TriePtr, ) -> Result<(crate::tries::nodes::TrieNodeType, stacks_common::types::chainstate::TrieHash), crate::MarfError> {
+    fn read_node_type(&self, block_id: u32, ptr: &crate::tries::TriePtr, ) -> Result<(TrieNodeType, stacks_common::types::chainstate::TrieHash), crate::MarfError> {
         let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
@@ -308,7 +308,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Utils::read_nodetype(&mut blob, ptr)
     }
 
-    fn read_node_type_nohash(&self, block_id: u32, ptr: &crate::tries::TriePtr) -> Result<crate::tries::nodes::TrieNodeType, crate::MarfError> {
+    fn read_node_type_nohash(&self, block_id: u32, ptr: &crate::tries::TriePtr) -> Result<TrieNodeType, crate::MarfError> {
         let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",

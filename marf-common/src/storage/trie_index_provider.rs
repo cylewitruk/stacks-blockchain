@@ -2,7 +2,7 @@ use std::{io::{Read, Seek, Write}};
 
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfError, MarfTrieId, tries::{TriePtr, nodes::TrieNodeType}, BlockMap};
+use crate::{MarfError, MarfTrieId, tries::{TriePtr, TrieNodeType}, BlockMap};
 
 pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
     /// Retrieves the block hash for the specified block identifier from the underlying store.

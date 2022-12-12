@@ -2,7 +2,7 @@ use std::io::{Write, Seek};
 
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfError, MarfTrieId, tries::{nodes::TrieNodeType, TriePtr}};
+use crate::{MarfError, MarfTrieId, tries::{TrieNodeType, TriePtr}};
 
 use super::{TrieStorageTransaction, TrieRAM};
 

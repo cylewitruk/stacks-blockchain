@@ -12,7 +12,7 @@ use crate::{
     MarfValue, MarfOpenOpts, 
     tries::{
         TrieMerkleProof, TriePtr, TrieCursor, TriePath, TrieLeaf,
-        nodes::{TrieNodeType, TrieNodeID, TrieNode256}, 
+        TrieNodeType, TrieNodeID, TrieNode256, 
     }, TrieHashExtension
 };
 
