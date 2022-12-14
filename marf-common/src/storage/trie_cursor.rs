@@ -5,7 +5,7 @@ use crate::{MarfTrieId, tries::TriePtr, MarfError, TrieCache, BlockMap, index::T
 use super::{NodeHashReader};
 
 pub struct TrieCursor<'a> {
-    index: &'a mut TrieIndex,
+    index: &'a mut TrieIndex<'a>,
     block_id: u32,
 }
 
@@ -16,12 +16,12 @@ impl NodeHashReader for TrieCursor<'_> {
 }
 
 pub struct TrieHashMapCursor<'a, TTrieId: MarfTrieId> {
-    index: &'a TrieIndex,
+    index: &'a mut TrieIndex<'a>,
     cache: &'a mut TrieCache<TTrieId>,
     unconfirmed: bool,
 }
 
-impl<T: MarfTrieId> BlockMap<T> for TrieHashMapCursor<'_, T> {
+impl<'a, T: MarfTrieId> BlockMap<T> for TrieHashMapCursor<'a, T> {
 
     fn get_block_hash(&self, id: u32) -> Result<T, MarfError> {
         self.index.get_block_hash(id)

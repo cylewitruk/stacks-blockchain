@@ -2,20 +2,20 @@ use std::{
     io::{Write, SeekFrom, Seek}
 };
 
-use crate::{tries::TriePtr, MarfError, utils::Utils, MarfTrieId, index::TrieIndex};
+use crate::{tries::TriePtr, MarfError, utils::Utils, index::TrieIndex};
 
 use super::{NodeHashReader, TrieFile};
 
 /// NodeHashReader for TrieFile
 pub struct TrieFileNodeHashReader<'a> {
-    db: &'a mut TrieIndex,
+    db: &'a mut TrieIndex<'a>,
     file: &'a mut TrieFile,
     block_id: u32
 }
 
 impl<'a> TrieFileNodeHashReader<'a> {
     pub fn new(
-        db: &'a mut TrieIndex,
+        db: &'a mut TrieIndex<'a>,
         file: &'a mut TrieFile,
         block_id: u32,
     ) -> TrieFileNodeHashReader<'a> {

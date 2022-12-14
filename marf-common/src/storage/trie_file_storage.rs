@@ -1,17 +1,17 @@
 use crate::{
     MarfTrieId, MarfError, storage::{TrieStorageTransientData}, BlockMap, 
-    TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark, MarfOpenOpts, sqlite::SqliteIndexProvider, index::{TrieIndex, TrieIndexType, TrieIndexProvider}
+    TrieCache, tries::TrieHashCalculationMode, diagnostics::TrieBenchmark, MarfOpenOpts, sqlite::SqliteIndexProvider, index::{TrieIndex, TrieIndexType}
 };
 
 use super::{TrieFile, TrieStorageConnection, TrieStorageTransaction};
 
-pub struct TrieFileStorage<TTrieId>
+pub struct TrieFileStorage<'a, TTrieId>
     where
         TTrieId: MarfTrieId
 {
     pub db_path: String,
 
-    pub index: TrieIndex,
+    pub index: TrieIndex<'a>,
     pub blobs: Option<TrieFile>,
     pub data: TrieStorageTransientData<TTrieId>,
     pub cache: TrieCache<TTrieId>,
@@ -24,7 +24,7 @@ pub struct TrieFileStorage<TTrieId>
     pub test_genesis_block: Option<TTrieId>,
 }
 
-impl<TTrieId: MarfTrieId> TrieFileStorage<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     pub fn connection(&mut self) -> TrieStorageConnection<TTrieId> {
         TrieStorageConnection {
             index: &self.index,
@@ -71,9 +71,10 @@ impl<TTrieId: MarfTrieId> TrieFileStorage<TTrieId> {
     ) -> Result<TrieFileStorage<TTrieId>, MarfError> {
         let mut create_flag = false;
         let index = match marf_opts.trie_index_type {
-            TrieIndexType::Sqlite => {
+            TrieIndexType::SQLite => {
                 TrieIndex::SQLite(SqliteIndexProvider::new_from_db_path(&format!("{}.sqlite", db_path), readonly, &marf_opts).unwrap())
-            }
+            },
+            TrieIndexType::RocksDB => todo!()
         };
 
         // Create tables if needed
@@ -132,7 +133,7 @@ impl<TTrieId: MarfTrieId> TrieFileStorage<TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn new_memory(marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+    pub fn new_memory(marf_opts: MarfOpenOpts) -> Result<TrieFileStorage<'a, TTrieId>, MarfError> {
         TrieFileStorage::open(":memory:", marf_opts)
     }
 
@@ -185,7 +186,7 @@ impl<TTrieId: MarfTrieId> TrieFileStorage<TTrieId> {
         // TODO: borrow self.uncommitted_writes; don't copy them
         let ret = TrieFileStorage {
             db_path: self.db_path.clone(),
-            index: db.as_mut(),
+            index: db,
             blobs,
             cache,
             bench: TrieBenchmark::new(),
@@ -233,7 +234,7 @@ impl<TTrieId: MarfTrieId> TrieFileStorage<TTrieId> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieFileStorage<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieFileStorage<'a, TTrieId> {
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
         //trie_sql::get_block_hash(&self.db, id)
         self.index.get_block_hash(id)

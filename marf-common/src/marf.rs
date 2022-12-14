@@ -17,13 +17,13 @@ use crate::{
 };
 
 /// Merklized Adaptive-Radix Forest -- a collection of Merklized Adaptive-Radix Tries.
-pub struct Marf<TTrieId: MarfTrieId> {
+pub struct Marf<'a, TTrieId: MarfTrieId> {
     //storage: TrieFileStorage<TTrieId, TIndex>,
-    storage: TrieFileStorage<TTrieId>,
+    storage: TrieFileStorage<'a, TTrieId>,
     open_chain_tip: Option<WriteChainTip<TTrieId>>,
 }
 
-impl<TTrieId: MarfTrieId> MarfConnection<'_, TTrieId> for Marf<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> MarfConnection<'_, TTrieId> for Marf<'a, TTrieId> {
     fn with_conn<F, R>(&mut self, exec: F) -> R
         where F: FnOnce(&mut TrieStorageConnection<TTrieId>) -> R,
     {
@@ -33,9 +33,9 @@ impl<TTrieId: MarfTrieId> MarfConnection<'_, TTrieId> for Marf<TTrieId> {
 }
 
 // static methods
-impl<'a, TTrieId: MarfTrieId> Marf<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     #[cfg(test)]
-    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId>, opened_to: &TTrieId) -> Marf<TTrieId> {
+    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId>, opened_to: &TTrieId) -> Marf<'a, TTrieId> {
         Marf {
             storage,
             open_chain_tip: Some(WriteChainTip {
@@ -751,7 +751,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<TTrieId> {
 }
 
 // instance methods
-impl<TTrieId: MarfTrieId> Marf<TTrieId> {
+impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     pub fn begin_tx(&mut self) -> Result<MarfTransaction<TTrieId>, MarfError> {
         let storage = self.storage.transaction()?;
         Ok(MarfTransaction {

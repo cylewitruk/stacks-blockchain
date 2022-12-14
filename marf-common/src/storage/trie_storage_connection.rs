@@ -42,7 +42,7 @@ pub struct TrieStorageConnection<'a, TTrieId>
     where TTrieId: MarfTrieId
 {
     pub db_path: &'a str,
-    pub index: &'a TrieIndex,
+    pub index: &'a TrieIndex<'a>,
     pub blobs: Option<&'a mut TrieFile>,
     pub data: &'a mut TrieStorageTransientData<TTrieId>,
     pub cache: &'a mut TrieCache<TTrieId>,
@@ -511,7 +511,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
         trace!("write_children_hashes for {:?}", node);
 
         let mut map = TrieHashMapCursor {
-            index: self.index,
+            index: &mut self.index,
             cache: &mut self.cache,
             unconfirmed: self.data.unconfirmed,
         };

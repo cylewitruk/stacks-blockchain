@@ -81,7 +81,7 @@ fn test_marf_with_cache(
         test_file
     };
 
-    let marf_opts = MarfOpenOpts::new(hash_strategy, cache_strategy, true, TrieIndexType::Sqlite);
+    let marf_opts = MarfOpenOpts::new(hash_strategy, cache_strategy, true, TrieIndexType::SQLite);
     let f = TrieFileStorage::open(&test_file, marf_opts).unwrap();
     let mut marf = Marf::from_storage(f);
     let mut last_block_header = BlockHeaderHash::sentinel();

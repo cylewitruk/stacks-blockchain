@@ -3,7 +3,7 @@ use std::{fs, io::{self, Read, Cursor}};
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::TrieStorageConnection, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::TrieNodeType, index::{TrieIndex, TrieIndexProvider}};
+use crate::{storage::TrieStorageConnection, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::{TrieNodeType, TriePtr}, index::TrieIndex};
 
 use super::SqliteUtils;
 
@@ -214,10 +214,10 @@ impl SqliteIndexProvider<'_> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider<'a> {
+impl<'a> SqliteIndexProvider<'a> {
     
 
-    fn get_block_identifier(&self, bhh: &TTrieId) -> Result<u32, crate::MarfError> {
+    pub fn get_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
         self.db.query_row(
                 "SELECT block_id FROM marf_data WHERE block_hash = ?",
                 &[bhh],
@@ -226,7 +226,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
             .map_err(|e| e.into())
     }
 
-    fn get_node_hash_bytes(&self, block_id: u32, ptr: &crate::tries::TriePtr) -> Result<stacks_common::types::chainstate::TrieHash, crate::MarfError> {
+    pub fn get_node_hash_bytes(&self, block_id: u32, ptr: &TriePtr) -> Result<TrieHash, MarfError> {
         let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
@@ -240,7 +240,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(TrieHash(hash_buff))
     }
 
-    fn get_node_hash_bytes_by_bhh(&self, bhh: &TTrieId, ptr: &crate::tries::TriePtr) -> Result<stacks_common::types::chainstate::TrieHash, crate::MarfError> {
+    pub fn get_node_hash_bytes_by_bhh<TTrieId: MarfTrieId>(&self, bhh: &TTrieId, ptr: &TriePtr) -> Result<TrieHash, MarfError> {
         let row_id: i64 = self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ?",
             &[bhh],
@@ -260,7 +260,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(TrieHash(hash_buff))
     }
 
-    fn read_all_block_hashes_and_roots(&self) -> Result<Vec<(TrieHash, TTrieId)>, crate::MarfError> {
+    pub fn read_all_block_hashes_and_roots<TTrieId: MarfTrieId>(&self) -> Result<Vec<(TrieHash, TTrieId)>, MarfError> {
         let mut s = self.db.prepare(
             "SELECT block_hash, data FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash",
         )?;
@@ -281,7 +281,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         rows.collect()
     }
 
-    fn get_confirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
+    pub fn get_confirmed_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
         self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 0",
             &[bhh],
@@ -291,7 +291,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         .map_err(|e| e.into())
     }
 
-    fn get_unconfirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, crate::MarfError> {
+    fn get_unconfirmed_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
         self.db.query_row(
             "SELECT block_id FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
             &[bhh],
@@ -301,7 +301,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         .map_err(|e| e.into())
     }
 
-    fn read_node_type(&self, block_id: u32, ptr: &crate::tries::TriePtr, ) -> Result<(TrieNodeType, stacks_common::types::chainstate::TrieHash), crate::MarfError> {
+    fn read_node_type(&self, block_id: u32, ptr: &TriePtr, ) -> Result<(TrieNodeType, TrieHash), MarfError> {
         let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
@@ -313,7 +313,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Utils::read_nodetype(&mut blob, ptr)
     }
 
-    fn read_node_type_nohash(&self, block_id: u32, ptr: &crate::tries::TriePtr) -> Result<TrieNodeType, crate::MarfError> {
+    fn read_node_type_nohash(&self, block_id: u32, ptr: &TriePtr) -> Result<TrieNodeType, MarfError> {
         let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
@@ -325,7 +325,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Utils::read_nodetype_nohash(&mut blob, ptr)
     }
 
-    fn count_blocks(&self) -> Result<u32, crate::MarfError> {
+    fn count_blocks(&self) -> Result<u32, MarfError> {
         let result = self.db.query_row(
             "SELECT IFNULL(MAX(block_id), 0) AS count FROM marf_data WHERE unconfirmed = 0",
             NO_PARAMS,
@@ -335,7 +335,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(result)
     }
 
-    fn is_unconfirmed_block(&self, block_id: u32) -> Result<bool, crate::MarfError> {
+    fn is_unconfirmed_block(&self, block_id: u32) -> Result<bool, MarfError> {
         let res: i64 = self.db.query_row(
             "SELECT unconfirmed FROM marf_data WHERE block_id = ?1",
             &[&block_id],
@@ -345,17 +345,17 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(res != 0)
     }
 
-    fn update_external_trie_blob(
+    fn update_external_trie_blob<TTrieId: MarfTrieId>(
         &self,
         block_hash: &TTrieId,
         offset: u64,
         length: u64,
         block_id: u32,
-    ) -> Result<u32, crate::MarfError> {
+    ) -> Result<u32, MarfError> {
         self.inner_write_external_trie_blob(block_hash, offset, length, Some(block_id))
     }
 
-    fn get_external_trie_offset_length(&self, block_id: u32) -> Result<(u64, u64), crate::MarfError> {
+    fn get_external_trie_offset_length(&self, block_id: u32) -> Result<(u64, u64), MarfError> {
         let qry = "SELECT external_offset, external_length FROM marf_data WHERE block_id = ?1";
         let args: &[&dyn ToSql] = &[&block_id];
 
@@ -365,7 +365,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok((offset, length))
     }
 
-    fn get_external_trie_offset_length_by_bhh(&self, bhh: &TTrieId) -> Result<(u64, u64), crate::MarfError> {
+    fn get_external_trie_offset_length_by_bhh<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(u64, u64), MarfError> {
         let qry = "SELECT external_offset, external_length FROM marf_data WHERE block_hash = ?1";
         let args: &[&dyn ToSql] = &[bhh];
 
@@ -375,7 +375,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok((offset, length))
     }
 
-    fn get_external_blobs_length(&self) -> Result<u64, crate::MarfError> {
+    fn get_external_blobs_length(&self) -> Result<u64, MarfError> {
         let qry = "SELECT (external_offset + external_length) AS blobs_length FROM marf_data ORDER BY external_offset DESC LIMIT 1";
         let max_len = SqliteUtils::query_row(&self.db, qry, NO_PARAMS)?
             .unwrap_or(0);
@@ -383,16 +383,16 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(max_len)
     }
 
-    fn write_external_trie_blob(
+    fn write_external_trie_blob<TTrieId: MarfTrieId>(
         &self,
         block_hash: &TTrieId,
         offset: u64,
         length: u64,
-    ) -> Result<u32, crate::MarfError> {
+    ) -> Result<u32, MarfError> {
         self.inner_write_external_trie_blob(block_hash, offset, length, None)
     }
 
-    fn write_trie_blob(
+    fn write_trie_blob<TTrieId: MarfTrieId>(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -409,7 +409,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(block_id)
     }
 
-    fn write_trie_blob_to_mined(
+    fn write_trie_blob_to_mined<TTrieId: MarfTrieId>(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -437,7 +437,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(block_id)
     }
 
-    fn write_trie_blob_to_unconfirmed(
+    fn write_trie_blob_to_unconfirmed<TTrieId: MarfTrieId>(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -471,7 +471,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(block_id)
     }
 
-    fn drop_lock(&self, bhh: &TTrieId) -> Result<(), MarfError> {
+    fn drop_lock<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(), MarfError> {
         self.db.execute(
             "DELETE FROM block_extension_locks WHERE block_hash = ?",
             &[bhh],
@@ -479,7 +479,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(())
     }
 
-    fn lock_bhh_for_extension(
+    fn lock_bhh_for_extension<TTrieId: MarfTrieId>(
         &mut self,
         bhh: &TTrieId,
         unconfirmed: bool,
@@ -530,7 +530,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         todo!()
     }
 
-    fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError> {
+    fn drop_unconfirmed_trie<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(), MarfError> {
         debug!("Drop unconfirmed trie sqlite blob {}", bhh);
         self.db.execute(
             "DELETE FROM marf_data WHERE block_hash = ? AND unconfirmed = 1",
@@ -563,7 +563,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
 
     fn reopen_readonly(&self) -> Result<TrieIndex, MarfError> {
         let provider = SqliteIndexProvider::new_from_db_path(&self.db_path, true, self.marf_opts)?;
-        Ok(provider)
+        Ok(TrieIndex::SQLite(provider))
     }
 
     fn begin_transaction(&mut self) -> Result<(), MarfError> {
@@ -590,7 +590,7 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
     }
 
     #[cfg(test)]
-    fn read_all_block_hashes_and_offsets(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
+    fn read_all_block_hashes_and_offsets<TTrieId: MarfTrieId>(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
 
         let mut s =
             self.db.prepare("SELECT block_hash, external_offset FROM marf_data WHERE unconfirmed = 0 ORDER BY block_hash")?;

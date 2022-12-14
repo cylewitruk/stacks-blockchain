@@ -71,7 +71,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
         // TODO: borrow self.uncommitted_writes; don't copy them
         let ret = TrieFileStorage {
             db_path: self.db_path.to_string(),
-            index: db.as_mut(),
+            index: db,
             blobs,
             cache,
             bench: TrieBenchmark::new(),

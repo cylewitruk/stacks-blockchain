@@ -148,7 +148,7 @@ impl TrieFile {
 impl TrieFile {
     /// Determine the file offset in the TrieFile where a serialized trie starts.
     /// The offsets are stored in the given DB, and are cached indefinitely once loaded.
-    pub fn get_trie_offset<TTrieId: MarfTrieId>(&mut self, db: &TrieIndex, block_id: u32) -> Result<u64, MarfError> {
+    pub fn get_trie_offset(&mut self, db: &TrieIndex, block_id: u32) -> Result<u64, MarfError> {
         let offset_opt = match self {
             TrieFile::RAM(ref ram) => ram.trie_offsets.get(&block_id),
             TrieFile::Disk(ref disk) => disk.trie_offsets.get(&block_id),
@@ -167,7 +167,7 @@ impl TrieFile {
     }
 
     /// Obtain a TrieHash for a node, given its block ID and pointer
-    pub fn get_node_hash_bytes<TTrieId: MarfTrieId>(
+    pub fn get_node_hash_bytes(
         &mut self,
         db: &TrieIndex,
         block_id: u32,
@@ -181,7 +181,7 @@ impl TrieFile {
 
     /// Obtain a TrieNodeType and its associated TrieHash for a node, given its block ID and
     /// pointer
-    pub fn read_node_type<TTrieId: MarfTrieId>(
+    pub fn read_node_type(
         &mut self,
         db: &TrieIndex,
         block_id: u32,
@@ -193,7 +193,7 @@ impl TrieFile {
     }
 
     /// Obtain a TrieNodeType, given its block ID and pointer
-    pub fn read_node_type_nohash<TTrieId: MarfTrieId>(
+    pub fn read_node_type_nohash(
         &mut self,
         db: &TrieIndex,
         block_id: u32,
@@ -273,7 +273,7 @@ impl TrieFile {
 
     /// Append a serialized trie to the TrieFile.
     /// Returns the offset at which it was appended.
-    pub fn append_trie_blob<TTrieId: MarfTrieId>(&mut self, db: &TrieIndex, buf: &[u8]) -> Result<u64, MarfError> {
+    pub fn append_trie_blob(&mut self, db: &TrieIndex, buf: &[u8]) -> Result<u64, MarfError> {
         let offset = db.get_external_blobs_length()?;
         test_debug!("Write trie of {} bytes at {}", buf.len(), offset);
         self.seek(SeekFrom::Start(offset))?;
