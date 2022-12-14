@@ -17,25 +17,25 @@ use crate::{
 };
 
 /// Merklized Adaptive-Radix Forest -- a collection of Merklized Adaptive-Radix Tries.
-pub struct Marf<'a, TTrieId: MarfTrieId> {
+pub struct Marf<TTrieId: MarfTrieId> {
     //storage: TrieFileStorage<TTrieId, TIndex>,
-    storage: TrieFileStorage<'a, TTrieId>,
+    storage: TrieFileStorage<TTrieId>,
     open_chain_tip: Option<WriteChainTip<TTrieId>>,
 }
 
-impl<'a, TTrieId: MarfTrieId> MarfConnection<TTrieId> for Marf<'a, TTrieId> {
+impl<TTrieId: MarfTrieId> MarfConnection<'_, TTrieId> for Marf<TTrieId> {
     fn with_conn<F, R>(&mut self, exec: F) -> R
         where F: FnOnce(&mut TrieStorageConnection<TTrieId>) -> R,
     {
-        let mut conn = self.storage.connection();
+        let mut conn: TrieStorageConnection<TTrieId> = self.storage.connection();
         exec(&mut conn)
     }
 }
 
 // static methods
-impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> Marf<TTrieId> {
     #[cfg(test)]
-    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId>, opened_to: &TTrieId) -> Marf<'a, TTrieId> {
+    pub fn from_storage_opened(storage: TrieFileStorage<TTrieId>, opened_to: &TTrieId) -> Marf<TTrieId> {
         Marf {
             storage,
             open_chain_tip: Some(WriteChainTip {
@@ -46,7 +46,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn begin(&mut self, chain_tip: &TTrieId, next_chain_tip: &TTrieId) -> Result<(), MarfError> {
+    pub fn begin(&'a mut self, chain_tip: &TTrieId, next_chain_tip: &TTrieId) -> Result<(), MarfError> {
         let mut tx = self.begin_tx()?;
         tx.begin(chain_tip, next_chain_tip)?;
         tx.commit_tx();
@@ -54,7 +54,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn begin_unconfirmed(&mut self, chain_tip: &TTrieId) -> Result<TTrieId, MarfError> {
+    pub fn begin_unconfirmed(&'a mut self, chain_tip: &TTrieId) -> Result<TTrieId, MarfError> {
         let mut tx = self.begin_tx()?;
         let result = tx.begin_unconfirmed(chain_tip)?;
         tx.commit_tx();
@@ -62,7 +62,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     }
 
     #[cfg(test)]
-    pub fn seal(&mut self) -> Result<TrieHash, MarfError> {
+    pub fn seal(&'a mut self) -> Result<TrieHash, MarfError> {
         let mut tx = self.begin_tx()?;
         let h = tx.seal()?;
         Ok(h)
@@ -559,9 +559,9 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     }
 
     /// Instantiate the MARF from a TrieFileStorage instance
-    pub fn from_storage(storage: TrieFileStorage<TTrieId>) -> Marf<'a, TTrieId> {
+    pub fn from_storage(storage: TrieFileStorage<TTrieId>) -> Marf<TTrieId> {
         Marf {
-            storage: storage,
+            storage,
             open_chain_tip: None,
         }
     }
@@ -569,7 +569,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     /// Instantiate the MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<'a, TTrieId>, MarfError> {
+    pub fn from_path(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
         let file_storage = TrieFileStorage::open(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }
@@ -577,7 +577,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
     /// Instantiate an unconfirmed MARF using a TrieFileStorage instance, from the given path on disk.
     /// This will have the side-effect of instantiating a new fork table from the tries encoded on
     /// disk. Performant code should call this method sparingly.
-    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<'a, TTrieId>, MarfError> {
+    pub fn from_path_unconfirmed(path: &str, open_opts: MarfOpenOpts) -> Result<Marf<TTrieId>, MarfError> {
         let file_storage = TrieFileStorage::open_unconfirmed(path, open_opts)?;
         Ok(Marf::from_storage(file_storage))
     }
@@ -751,8 +751,8 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
 }
 
 // instance methods
-impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
-    pub fn begin_tx(&'a mut self) -> Result<MarfTransaction<'a, TTrieId>, MarfError> {
+impl<TTrieId: MarfTrieId> Marf<TTrieId> {
+    pub fn begin_tx(&mut self) -> Result<MarfTransaction<TTrieId>, MarfError> {
         let storage = self.storage.transaction()?;
         Ok(MarfTransaction {
             storage,
@@ -988,7 +988,7 @@ impl<'a, TTrieId: MarfTrieId> Marf<'a, TTrieId> {
         }
 
         let ro_storage = self.storage.reopen_readonly()?;
-        Ok(Marf {
+        Ok(Marf::<TTrieId> {
             storage: ro_storage,
             open_chain_tip: None,
         })

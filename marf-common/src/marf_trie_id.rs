@@ -9,5 +9,6 @@ pub trait MarfTrieId:
     + PartialEq
     + Eq
     + std::hash::Hash
+    + Copy
 {
 }

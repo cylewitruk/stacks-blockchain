@@ -1,4 +1,4 @@
-use crate::{tries::TrieHashCalculationMode, storage::TrieIndexType};
+use crate::{tries::TrieHashCalculationMode, index::TrieIndexType};
 
 
 /// Options for opening a MARF
@@ -24,7 +24,7 @@ impl<'a> MarfOpenOpts {
             cache_strategy: "noop".to_string(),
             external_blobs: false,
             force_db_migrate: false,
-            trie_index_type: TrieIndexType::Sqlite
+            trie_index_type: TrieIndexType::SQLite
         }
     }
 
@@ -46,14 +46,14 @@ impl<'a> MarfOpenOpts {
     #[cfg(test)]
     pub fn all() -> Vec<MarfOpenOpts> {
         vec![
-            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "noop", false, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "noop", false, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "noop", true, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "noop", true, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "everything", false, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "everything", false, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "everything", true, TrieIndexType::Sqlite),
-            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "everything", true, TrieIndexType::Sqlite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "noop", false, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "noop", false, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "noop", true, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "noop", true, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "everything", false, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "everything", false, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Immediate, "everything", true, TrieIndexType::SQLite),
+            MarfOpenOpts::new(TrieHashCalculationMode::Deferred, "everything", true, TrieIndexType::SQLite),
         ]
     }
 }

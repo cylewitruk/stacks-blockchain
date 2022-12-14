@@ -1,4 +1,4 @@
-use std::{io::{Read, Seek, Write}};
+use std::{io::{Write, Cursor}};
 
 use stacks_common::types::chainstate::TrieHash;
 
@@ -69,7 +69,7 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
     fn drop_lock(&self, bhh: &TTrieId) -> Result<(), MarfError>;
 
     fn lock_bhh_for_extension(
-        &self,
+        &mut self,
         bhh: &TTrieId,
         unconfirmed: bool,
     ) -> Result<bool, MarfError>;
@@ -83,11 +83,11 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
 
     fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError>;
 
-    fn format(&self) -> Result<(), MarfError>;
+    fn format(&mut self) -> Result<(), MarfError>;
 
-    fn open_trie_blob(&self, block_id: u32) -> Result<&mut dyn TrieBlob, MarfError>;
+    fn open_trie_blob(&self, block_id: u32) -> Result<Cursor<Vec<u8>>, MarfError>;
 
-    fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError>;
+    fn reopen_readonly(&self) -> Result<Box<dyn TrieIndexProvider<TTrieId>>, MarfError>;
 
     fn begin_transaction(&mut self) -> Result<(), MarfError>;
 
@@ -97,13 +97,4 @@ pub trait TrieIndexProvider<TTrieId: MarfTrieId> : BlockMap<TTrieId> {
 
     #[cfg(test)]
     fn read_all_block_hashes_and_offsets(&self) -> Result<Vec<(TTrieId, u64)>, MarfError>;
-}
-
-pub trait TrieBlob: Read + Seek {}
-
-impl<T: Seek + Read> TrieBlob for T {}
-
-#[derive(Debug, Clone)]
-pub enum TrieIndexType {
-    Sqlite
 }

@@ -25,6 +25,7 @@ mod marf_connection;
 mod tries;
 mod cache;
 mod diagnostics;
+mod index;
 
 pub mod errors;
 pub mod sqlite;

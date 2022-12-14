@@ -1,22 +1,22 @@
 use std::io::Write;
 
-use crate::{MarfTrieId, tries::TriePtr, MarfError, TrieCache, BlockMap};
+use crate::{MarfTrieId, tries::TriePtr, MarfError, TrieCache, BlockMap, index::TrieIndex};
 
-use super::{TrieIndexProvider, NodeHashReader};
+use super::{NodeHashReader};
 
-pub struct TrieCursor<'a, TTrieId: MarfTrieId> {
-    index: &'a dyn TrieIndexProvider<TTrieId>,
+pub struct TrieCursor<'a> {
+    index: &'a mut TrieIndex,
     block_id: u32,
 }
 
-impl<TTrieId: MarfTrieId> NodeHashReader for TrieCursor<'_, TTrieId> {
+impl NodeHashReader for TrieCursor<'_> {
     fn read_node_hash_bytes<W: Write>(&mut self, ptr: &TriePtr, w: &mut W) -> Result<(), MarfError> {
-        self.index.read_node_hash_bytes(&mut w, self.block_id, ptr)
+        self.index.read_node_hash_bytes(w, self.block_id, ptr)
     }
 }
 
 pub struct TrieHashMapCursor<'a, TTrieId: MarfTrieId> {
-    index: &'a dyn TrieIndexProvider<TTrieId>,
+    index: &'a TrieIndex,
     cache: &'a mut TrieCache<TTrieId>,
     unconfirmed: bool,
 }

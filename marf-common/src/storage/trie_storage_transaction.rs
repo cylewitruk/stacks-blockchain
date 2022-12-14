@@ -53,8 +53,8 @@ impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieStorageTransaction<'a, T
 impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
     /// reopen this transaction as a read-only marf.
     ///  _does not_ preserve the cur_block/open tip
-    pub fn reopen_readonly(&self) -> Result<TrieFileStorage<TTrieId>, MarfError> {
-        let db = self.index.reopen_readonly()?;
+    pub fn reopen_readonly(&'a mut self) -> Result<TrieFileStorage<TTrieId>, MarfError> {
+        let mut db = self.index.reopen_readonly()?;
         let blobs = if self.blobs.is_some() {
             Some(TrieFile::from_db_path(&self.db_path, true)?)
         } else {
@@ -71,7 +71,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
         // TODO: borrow self.uncommitted_writes; don't copy them
         let ret = TrieFileStorage {
             db_path: self.db_path.to_string(),
-            index: db,
+            index: db.as_mut(),
             blobs,
             cache,
             bench: TrieBenchmark::new(),
@@ -399,7 +399,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageTransaction<'a, TTrieId> {
         self.index.commit_transaction();
     }
 
-    pub fn rollback(self) {
+    pub fn rollback(mut self) {
         self.index.rollback_transaction();
     }
 }

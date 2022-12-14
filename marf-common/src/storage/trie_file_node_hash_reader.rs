@@ -2,28 +2,28 @@ use std::{
     io::{Write, SeekFrom, Seek}
 };
 
-use crate::{tries::TriePtr, MarfError, utils::Utils, MarfTrieId};
+use crate::{tries::TriePtr, MarfError, utils::Utils, MarfTrieId, index::TrieIndex};
 
-use super::{TrieIndexProvider, NodeHashReader, TrieFile};
+use super::{NodeHashReader, TrieFile};
 
 /// NodeHashReader for TrieFile
-pub struct TrieFileNodeHashReader<'a, TTrieId: MarfTrieId> {
-    db: &'a dyn TrieIndexProvider<TTrieId>,
+pub struct TrieFileNodeHashReader<'a> {
+    db: &'a mut TrieIndex,
     file: &'a mut TrieFile,
     block_id: u32
 }
 
-impl<'a, TTrieId: MarfTrieId> TrieFileNodeHashReader<'a, TTrieId> {
+impl<'a> TrieFileNodeHashReader<'a> {
     pub fn new(
-        db: &'a dyn TrieIndexProvider<TTrieId>,
+        db: &'a mut TrieIndex,
         file: &'a mut TrieFile,
         block_id: u32,
-    ) -> TrieFileNodeHashReader<'a, TTrieId> {
+    ) -> TrieFileNodeHashReader<'a> {
         TrieFileNodeHashReader { db, file, block_id }
     }
 }
 
-impl<TTrieId: MarfTrieId> NodeHashReader for TrieFileNodeHashReader<'_, TTrieId> {
+impl NodeHashReader for TrieFileNodeHashReader<'_> {
     fn read_node_hash_bytes<W: Write>(&mut self, ptr: &TriePtr, w: &mut W) -> Result<(), MarfError> {
         let trie_offset = self.file.get_trie_offset(self.db, self.block_id)?;
         self.file

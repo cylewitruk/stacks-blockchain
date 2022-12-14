@@ -451,8 +451,8 @@ impl Utils {
     }
 
     /// Fetch children hashes and compute the node's hash
-    pub fn get_nodetype_hash<T: MarfTrieId>(
-        storage: &mut TrieStorageConnection<T>,
+    pub fn get_nodetype_hash<'a, T: MarfTrieId>(
+        storage: &'a mut TrieStorageConnection<'a, T>,
         node: &TrieNodeType,
     ) -> Result<TrieHash, MarfError> {
         if storage.hash_calculation_mode == TrieHashCalculationMode::Deferred {

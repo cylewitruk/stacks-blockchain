@@ -25,10 +25,10 @@ use crate::{
         TrieFileNodeHashReader, 
         TrieHashMapCursor, 
         TrieCursor
-    }
+    }, index::TrieIndex
 };
 
-use super::{TrieStorageTransientData, TrieIndexProvider, TrieFile, UncommittedState, node_hash_reader::NodeHashReader};
+use super::{TrieStorageTransientData, TrieFile, UncommittedState, node_hash_reader::NodeHashReader};
 
 ///
 ///  TrieStorageConnection is a pointer to an open TrieFileStorage,
@@ -42,7 +42,7 @@ pub struct TrieStorageConnection<'a, TTrieId>
     where TTrieId: MarfTrieId
 {
     pub db_path: &'a str,
-    pub index: &'a dyn TrieIndexProvider<TTrieId>,
+    pub index: &'a TrieIndex,
     pub blobs: Option<&'a mut TrieFile>,
     pub data: &'a mut TrieStorageTransientData<TTrieId>,
     pub cache: &'a mut TrieCache<TTrieId>,
@@ -68,7 +68,7 @@ impl<'a, TTrieId> TrieStorageConnection<'a, TTrieId>
 {
     fn new(
         db_path: &'a str, 
-        index: &'a dyn TrieIndexProvider<TTrieId>, 
+        index: &'a TrieIndex, 
         blobs: Option<&'a mut TrieFile>,
         data: &'a mut TrieStorageTransientData<TTrieId>,
         cache: &'a mut TrieCache<TTrieId>,
@@ -500,7 +500,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
     /// to call if the hash mode is `::Deferred`.  The only way this gets called while not in
     /// `::Deferred` mode is when generating a Merkle proof.
     pub fn write_children_hashes<W: Write>(
-        &mut self,
+        &'a mut self,
         node: &TrieNodeType,
         w: &mut W,
     ) -> Result<(), MarfError> {
@@ -541,7 +541,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
                 error!("Failed to get cur block as hash reader");
                 MarfError::NotFoundError
             })?;
-            let mut cursor = TrieFileNodeHashReader::new(self.index, blobs, block_id);
+            let mut cursor = TrieFileNodeHashReader::new(&mut self.index, blobs, block_id);
             let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
@@ -555,7 +555,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
             // tries stored in DB
             let start_time = self.bench.write_children_hashes_start();
             let mut cursor = TrieCursor {
-                index: self.index,
+                index: &mut self.index,
                 block_id: self.data.cur_block_id.ok_or_else(|| {
                     error!("Failed to get cur block as hash reader");
                     MarfError::NotFoundError

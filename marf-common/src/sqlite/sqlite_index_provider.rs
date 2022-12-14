@@ -1,23 +1,24 @@
-use std::{fs, io};
+use std::{fs, io::{self, Read, Cursor}};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{storage::{TrieIndexProvider, TrieStorageConnection, TrieBlob, TrieFile}, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::TrieNodeType};
+use crate::{storage::TrieStorageConnection, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::TrieNodeType, index::{TrieIndex, TrieIndexProvider}};
 
 use super::SqliteUtils;
 
+#[derive(Debug)]
 pub struct SqliteIndexProvider<'a> {
     db_path: &'a str,
     db: Connection,
-    tx: &'a mut Option<&'a mut Transaction<'a>>,
+    tx: Option<Transaction<'a>>,
     marf_opts: &'a MarfOpenOpts
 }
 
-impl<'a> SqliteIndexProvider<'a> {
+impl SqliteIndexProvider<'_> {
     /// Returns a new instance of `SqliteIndexProvider` using the provided `rusqlite::Connection`.
     fn new(db_path: &str, db: Connection, marf_opts: &MarfOpenOpts) -> Self {
-        SqliteIndexProvider { db, tx: &mut None, db_path, marf_opts }
+        SqliteIndexProvider { db, tx: None, db_path, marf_opts }
     }
 
     /// Returns a new memory-backed instance of `SqliteIndexProvider` (no data will be persisted to disk).
@@ -76,8 +77,9 @@ impl<'a> SqliteIndexProvider<'a> {
             SqliteUtils::create_tables_if_needed(&mut db)?;
         }
 
+        // TODO: Fix this
         // Migrate db if needed
-        let prev_schema_version = SqliteUtils::migrate_tables_if_needed(&mut db)?;
+        /*let prev_schema_version = SqliteUtils::migrate_tables_if_needed(&mut db)?;
         if prev_schema_version != super::SQL_MARF_SCHEMA_VERSION || marf_opts.force_db_migrate {
             if let Some(blobs) = blobs.as_mut() {
                 if TrieFile::exists(&db_path)? {
@@ -85,7 +87,7 @@ impl<'a> SqliteIndexProvider<'a> {
                     blobs.export_trie_blobs::(&db, &db_path)?;
                 }
             }
-        }
+        }*/
         if SqliteUtils::detect_partial_migration(&db)? {
             panic!("PARTIAL MIGRATION DETECTED! This is an irrecoverable error. You will need to restart your node from genesis.");
         }
@@ -107,46 +109,49 @@ impl<'a> SqliteIndexProvider<'a> {
     }
 
     /// Returns the currently open transaction.  Panics if there is no active transaction.
-    pub (in crate::sqlite) fn sqlite_get_active_transaction(self) -> &'a mut Transaction<'a> {
+    pub (in crate::sqlite) fn sqlite_get_active_transaction(&mut self) -> &mut Transaction {
         if !self.has_transaction() {
             panic!("BUG: Attempted to fetch SQLite transaction without an active transaction.")
         }
 
-        self.tx.unwrap()
+        let ret = self.tx.as_mut().unwrap();
+        return ret;
     }
 
     /// Begins a new SQLite transaction and sets the `tx` field on this struct.
-    pub (in crate::sqlite) fn sqlite_begin_transaction(&mut self) -> Result<&mut Transaction, MarfError> {
+    pub (in crate::sqlite) fn sqlite_begin_transaction(&mut self) -> Result<Option<&mut Transaction>, MarfError> {
         if self.has_transaction() {
             panic!("BUG: Attempted to begin SQLite transaction when one already exists.")
         }
 
         let trx = self.db.transaction()?;
 
-        self.tx = &mut Some(&mut trx);
+        self.tx = Some(trx);
 
-        Ok(&mut trx)
+        Ok(self.tx.as_mut())
     }
 
     /// Commits the currently active transaction and unsets the `tx` field on this struct.
-    pub (in crate::sqlite) fn sqlite_commit(&mut self) {
+    pub (in crate::sqlite) fn sqlite_commit(mut self) {
         if !self.has_transaction() {
             panic!("BUG: Attempted to commit SQLite transaction without an active transaction.")
         }
 
         self.tx.unwrap().commit()
             .expect("CORRUPTION: Failed to commit MARF.");
-        self.tx = &mut None;
+        self.tx = None;
     }
 
     /// Rolls-back the currently active transaction and unsets the `tx` field on this struct.
-    pub (in crate::sqlite) fn sqlite_rollback(&mut self) {
+    pub (in crate::sqlite) fn sqlite_rollback(mut self) {
         if !self.has_transaction() {
             panic!("BUG: Attempted to rollback SQLite transaction without an active transaction.")
         }
 
         self.tx.unwrap().rollback()
-            .expect("CORRUPTION: Failed to rollback MARF.")
+            .expect("CORRUPTION: Failed to rollback MARF.");
+
+        self.tx = None;
     }
 
     /// Write the offset/length of a trie blob that was stored to an external file.
@@ -475,11 +480,11 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
     }
 
     fn lock_bhh_for_extension(
-        &self,
+        &mut self,
         bhh: &TTrieId,
         unconfirmed: bool,
     ) -> Result<bool, MarfError> {
-        let tx = self.sqlite_get_active_transaction();
+        let mut tx = self.sqlite_get_active_transaction();
 
         if !unconfirmed {
             // confirmed tries can only be extended once.
@@ -535,27 +540,30 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
         Ok(())
     }
 
-    fn format(&self) -> Result<(), MarfError> {
+    fn format(&mut self) -> Result<(), MarfError> {
         let tx = self.sqlite_get_active_transaction();
         SqliteUtils::clear_tables(tx)?;
         Ok(())
     }
 
-    fn open_trie_blob(&self, block_id: u32) -> Result<&mut dyn TrieBlob, MarfError> {
-        let blob = self.db.blob_open(
+    fn open_trie_blob(&self, block_id: u32) -> Result<Cursor<Vec<u8>>, MarfError> {
+        let mut blob = self.db.blob_open(
             rusqlite::DatabaseName::Main,
             "marf_data",
             "data",
             block_id.into(),
             true,
         )?;
-        Ok(&mut blob)
+
+        let mut buffer = Vec::new();
+        blob.read_to_end(&mut buffer);
+        let cursor = Cursor::new(buffer);
+        return Ok(cursor);
     }
 
-    fn reopen_readonly(&self) -> Result<&dyn TrieIndexProvider<TTrieId>, MarfError> {
-        let db = Self::sqlite_open(&self.db_path, true, self.marf_opts)?;
+    fn reopen_readonly(&self) -> Result<TrieIndex, MarfError> {
         let provider = SqliteIndexProvider::new_from_db_path(&self.db_path, true, self.marf_opts)?;
-        Ok(&provider)
+        Ok(provider)
     }
 
     fn begin_transaction(&mut self) -> Result<(), MarfError> {
@@ -564,12 +572,20 @@ impl<'a, TTrieId: MarfTrieId> TrieIndexProvider<TTrieId> for SqliteIndexProvider
     }
 
     fn commit_transaction(&mut self) -> Result<(), MarfError> {
-        self.sqlite_commit();
+        self.tx
+            .take()
+            .expect("BUG: Attempted to commit SQLite transaction without an active transaction.")
+            .commit();
+    
         Ok(())
     }
 
     fn rollback_transaction(&mut self) -> Result<(), MarfError> {
-        self.sqlite_rollback();
+        self.tx
+            .take()
+            .expect("BUG: Attempted to rollback SQLite transaction without an active transaction.")
+            .rollback();
+    
         Ok(())
     }
 

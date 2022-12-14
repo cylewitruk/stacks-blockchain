@@ -6,20 +6,20 @@ use crate::{storage::TrieStorageConnection, MarfTrieId, MarfValue, MarfError, Ma
 /// This trait defines functions that are defined for both
 ///  MARF structs and MarfTransactions
 ///
-pub trait MarfConnection<TTrieId: MarfTrieId> {
-    fn with_conn<F, R>(&mut self, exec: F) -> R
+pub trait MarfConnection<'a, TTrieId: MarfTrieId> {
+    fn with_conn<F, R>(&'a mut self, exec: F) -> R
     where
-        F: FnOnce(&mut TrieStorageConnection<TTrieId>) -> R;
+        F: FnOnce(&'a mut TrieStorageConnection<TTrieId>) -> R;
 
     //fn sqlite_conn(&self) -> &Connection;
 
     /// Resolve a key from the MARF to a MARFValue with respect to the given block height.
-    fn get(&mut self, block_hash: &TTrieId, key: &str) -> Result<Option<MarfValue>, MarfError> {
+    fn get(&'a mut self, block_hash: &TTrieId, key: &str) -> Result<Option<MarfValue>, MarfError> {
         self.with_conn(|c| Marf::get_by_key(c, block_hash, key))
     }
 
     fn get_with_proof(
-        &mut self,
+        &'a mut self,
         block_hash: &TTrieId,
         key: &str,
     ) -> Result<Option<(MarfValue, TrieMerkleProof<TTrieId>)>, MarfError> {
@@ -33,16 +33,16 @@ pub trait MarfConnection<TTrieId: MarfTrieId> {
         })
     }
 
-    fn get_block_at_height(&mut self, height: u32, tip: &TTrieId) -> Result<Option<TTrieId>, MarfError> {
+    fn get_block_at_height(&'a mut self, height: u32, tip: &TTrieId) -> Result<Option<TTrieId>, MarfError> {
         self.with_conn(|c| Marf::get_block_at_height(c, height, tip))
     }
 
-    fn get_block_height(&mut self, ancestor: &TTrieId, tip: &TTrieId) -> Result<Option<u32>, MarfError> {
+    fn get_block_height(&'a mut self, ancestor: &TTrieId, tip: &TTrieId) -> Result<Option<u32>, MarfError> {
         self.with_conn(|c| Marf::get_block_height(c, ancestor, tip))
     }
 
     /// Get the root trie hash at a particular block
-    fn get_root_hash_at(&mut self, block_hash: &TTrieId) -> Result<TrieHash, MarfError> {
+    fn get_root_hash_at(&'a mut self, block_hash: &TTrieId) -> Result<TrieHash, MarfError> {
         self.with_conn(|c| c.get_root_hash_at(block_hash))
     }
 
@@ -50,7 +50,7 @@ pub trait MarfConnection<TTrieId: MarfTrieId> {
     ///   it's a known block, the storage system isn't issueing IOErrors, _and_ it's in the same fork
     ///   as the current block
     /// The MARF _must_ be open to a valid block for this check to be evaluated.
-    fn check_ancestor_block_hash(&mut self, bhh: &TTrieId) -> Result<(), MarfError> {
+    fn check_ancestor_block_hash(&'a mut self, bhh: &TTrieId) -> Result<(), MarfError> {
         self.with_conn(|conn| {
             let cur_block_hash = conn.get_cur_block();
             if cur_block_hash == *bhh {
