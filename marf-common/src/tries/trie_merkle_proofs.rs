@@ -16,7 +16,7 @@ use crate::{
     Marf, 
     CursorError, 
     TrieHashExtension, 
-    BlockMap
+    BlockMap, ClarityMarfTrieId
 };
 
 use super::{
@@ -46,7 +46,7 @@ impl<TTrieId: MarfTrieId> ProofTrieNode<TTrieId> {
         &self.ptrs
     }
 
-    fn try_from_trie_node<N: TrieNode, M: BlockMap<TTrieId>>(
+    fn try_from_trie_node<N: TrieNode, M: BlockMap>(
         other: &N,
         block_map: &mut M,
     ) -> Result<ProofTrieNode<TTrieId>, MarfError> {
@@ -66,7 +66,7 @@ impl<TTrieId: MarfTrieId> ProofTrieNode<TTrieId> {
 }
 
 impl<TTrieId: MarfTrieId> ProofTriePtr<TTrieId> {
-    fn try_from_trie_ptr<M: BlockMap<TTrieId>>(
+    fn try_from_trie_ptr<M: BlockMap>(
         other: &TriePtr,
         block_map: &mut M,
     ) -> Result<ProofTriePtr<TTrieId>, MarfError> {

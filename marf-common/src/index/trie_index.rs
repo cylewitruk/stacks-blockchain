@@ -1,14 +1,14 @@
 use stacks_common::types::chainstate::TrieHash;
 
-use crate::{MarfTrieId, sqlite::SqliteIndexProvider, MarfError, tries::{TriePtr, TrieNodeType}};
+use crate::{sqlite::SqliteIndexProvider, MarfError, tries::{TriePtr, TrieNodeType}, BlockMap, MarfTrieId};
 
-pub enum TrieIndex<'a> {
-    SQLite(SqliteIndexProvider<'a>),
+pub enum TrieIndex<'a, TTrieId: MarfTrieId> {
+    SQLite(SqliteIndexProvider<'a, TTrieId>),
     RocksDB,
 }
 
-impl<'a> TrieIndex<'a> {
-    pub fn get_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
+impl<'a, TTrieId: MarfTrieId> TrieIndex<'a, TTrieId> {
+    pub fn get_block_identifier(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
         match self {
             TrieIndex::SQLite(p) => p.get_block_identifier(bhh),
             TrieIndex::RocksDB => todo!()
@@ -19,19 +19,19 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn get_node_hash_bytes_by_bhh<TTrieId: MarfTrieId>(&self, bhh: &TTrieId, ptr: &TriePtr) -> Result<TrieHash, MarfError> {
+    pub fn get_node_hash_bytes_by_bhh(&self, bhh: &TTrieId, ptr: &TriePtr) -> Result<TrieHash, MarfError> {
         todo!()
     }
 
-    pub fn read_all_block_hashes_and_roots<TTrieId: MarfTrieId>(&self) -> Result<Vec<(stacks_common::types::chainstate::TrieHash, TTrieId)>, MarfError> {
+    pub fn read_all_block_hashes_and_roots(&self) -> Result<Vec<(stacks_common::types::chainstate::TrieHash, TTrieId)>, MarfError> {
         todo!()
     }
 
-    pub fn get_confirmed_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
+    pub fn get_confirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
         todo!()
     }
 
-    pub fn get_unconfirmed_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
+    pub fn get_unconfirmed_block_identifier(&self, bhh: &TTrieId) -> Result<Option<u32>, MarfError> {
         todo!()
     }
 
@@ -51,7 +51,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn update_external_trie_blob<TTrieId: MarfTrieId>(
+    pub fn update_external_trie_blob(
         &self,
         block_hash: &TTrieId,
         offset: u64,
@@ -65,7 +65,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn get_external_trie_offset_length_by_bhh<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(u64, u64), MarfError> {
+    pub fn get_external_trie_offset_length_by_bhh(&self, bhh: &TTrieId) -> Result<(u64, u64), MarfError> {
         todo!()
     }
 
@@ -73,7 +73,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn write_external_trie_blob<TTrieId: MarfTrieId>(
+    pub fn write_external_trie_blob(
         &self,
         block_hash: &TTrieId,
         offset: u64,
@@ -82,7 +82,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn write_trie_blob<TTrieId: MarfTrieId>(
+    pub fn write_trie_blob(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -90,7 +90,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn write_trie_blob_to_mined<TTrieId: MarfTrieId>(
+    pub fn write_trie_blob_to_mined(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -98,7 +98,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn write_trie_blob_to_unconfirmed<TTrieId: MarfTrieId>(
+    pub fn write_trie_blob_to_unconfirmed(
         &self,
         block_hash: &TTrieId,
         data: &[u8],
@@ -106,11 +106,11 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn drop_lock<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(), crate::MarfError> {
+    pub fn drop_lock(&self, bhh: &TTrieId) -> Result<(), crate::MarfError> {
         todo!()
     }
 
-    pub fn lock_bhh_for_extension<TTrieId: MarfTrieId>(
+    pub fn lock_bhh_for_extension(
         &mut self,
         bhh: &TTrieId,
         unconfirmed: bool,
@@ -127,7 +127,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn drop_unconfirmed_trie<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<(), MarfError> {
+    pub fn drop_unconfirmed_trie(&self, bhh: &TTrieId) -> Result<(), MarfError> {
         todo!()
     }
 
@@ -139,7 +139,7 @@ impl<'a> TrieIndex<'a> {
         todo!()
     }
 
-    pub fn reopen_readonly(&self) -> Result<TrieIndex<'a>, MarfError> {
+    pub fn reopen_readonly(&self) -> Result<TrieIndex<'a, TTrieId>, MarfError> {
         todo!()
     }
 
@@ -156,7 +156,31 @@ impl<'a> TrieIndex<'a> {
     }
 
     #[cfg(test)]
-    pub fn read_all_block_hashes_and_offsets<TTrieId: MarfTrieId>(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
+    pub fn read_all_block_hashes_and_offsets(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
+        todo!()
+    }
+}
+
+impl<'a, TTrieId: MarfTrieId> BlockMap for TrieIndex<'a, TTrieId> {
+    type TrieId = TTrieId;
+
+    fn get_block_hash(&self, id: u32) -> Result<Self::TrieId, MarfError> {
+        todo!()
+    }
+
+    fn get_block_hash_caching(&mut self, id: u32) -> Result<&Self::TrieId, MarfError> {
+        todo!()
+    }
+
+    fn is_block_hash_cached(&self, id: u32) -> bool {
+        todo!()
+    }
+
+    fn get_block_id(&self, bhh: &Self::TrieId) -> Result<u32, MarfError> {
+        todo!()
+    }
+
+    fn get_block_id_caching(&mut self, bhh: &Self::TrieId) -> Result<u32, MarfError> {
         todo!()
     }
 }

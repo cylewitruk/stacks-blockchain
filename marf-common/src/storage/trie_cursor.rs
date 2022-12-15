@@ -1,28 +1,30 @@
 use std::io::Write;
 
+use stacks_common::types::chainstate::TrieHash;
+
 use crate::{MarfTrieId, tries::TriePtr, MarfError, TrieCache, BlockMap, index::TrieIndex};
 
 use super::{NodeHashReader};
 
-pub struct TrieCursor<'a> {
-    index: &'a mut TrieIndex<'a>,
+pub struct TrieCursor<'a, TTrieId> {
+    index: &'a mut TrieIndex<'a, TTrieId>,
     block_id: u32,
 }
 
-impl NodeHashReader for TrieCursor<'_> {
+impl<'a, TTrieId> NodeHashReader for TrieCursor<'a, TTrieId> {
     fn read_node_hash_bytes<W: Write>(&mut self, ptr: &TriePtr, w: &mut W) -> Result<(), MarfError> {
         self.index.read_node_hash_bytes(w, self.block_id, ptr)
     }
 }
 
 pub struct TrieHashMapCursor<'a, TTrieId: MarfTrieId> {
-    index: &'a mut TrieIndex<'a>,
+    index: &'a mut TrieIndex<'a, TTrieId>,
     cache: &'a mut TrieCache<TTrieId>,
     unconfirmed: bool,
 }
 
-impl<'a, T: MarfTrieId> BlockMap<T> for TrieHashMapCursor<'a, T> {
-
+impl<'a, T: MarfTrieId> BlockMap for TrieHashMapCursor<'a, T> {
+    type TrieId: = TrieHash;
     fn get_block_hash(&self, id: u32) -> Result<T, MarfError> {
         self.index.get_block_hash(id)
     }

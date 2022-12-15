@@ -6,12 +6,10 @@ use crate::{
 use super::{TrieFile, TrieStorageConnection, TrieStorageTransaction};
 
 pub struct TrieFileStorage<'a, TTrieId>
-    where
-        TTrieId: MarfTrieId
 {
     pub db_path: String,
 
-    pub index: TrieIndex<'a>,
+    pub index: TrieIndex<'a, TTrieId>,
     pub blobs: Option<TrieFile>,
     pub data: TrieStorageTransientData<TTrieId>,
     pub cache: TrieCache<TTrieId>,
@@ -234,7 +232,8 @@ impl<'a, TTrieId: MarfTrieId> TrieFileStorage<'a, TTrieId> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieFileStorage<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> BlockMap for TrieFileStorage<'a, TTrieId> {
+    type TrieId = TTrieId;
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
         //trie_sql::get_block_hash(&self.db, id)
         self.index.get_block_hash(id)

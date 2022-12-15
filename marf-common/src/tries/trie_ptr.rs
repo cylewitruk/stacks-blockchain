@@ -2,7 +2,7 @@ use std::{io::Write};
 
 use stacks_common::types::chainstate::BLOCK_HEADER_HASH_ENCODED_SIZE;
 
-use crate::{utils::Utils, errors::MarfError, BlockMap, MarfTrieId};
+use crate::{utils::Utils, errors::MarfError, BlockMap, ClarityMarfTrieId};
 
 pub const TRIEPTR_SIZE: usize = 10; // full size of a TriePtr
 
@@ -79,7 +79,7 @@ impl TriePtr {
     /// The parts of a child pointer that are relevant for consensus are only its ID, path
     /// character, and referred-to block hash.  The software doesn't care about the details of how/where
     /// nodes are stored.
-    pub fn write_consensus_bytes<T: MarfTrieId, W: Write, M: BlockMap<T>>(
+    pub fn write_consensus_bytes<W: Write, M: BlockMap>(
         &self,
         block_map: &mut M,
         w: &mut W,

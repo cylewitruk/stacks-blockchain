@@ -25,7 +25,7 @@ use crate::{
         TrieFileNodeHashReader, 
         TrieHashMapCursor, 
         TrieCursor
-    }, index::TrieIndex
+    }, index::TrieIndex, ClarityMarfTrieId
 };
 
 use super::{TrieStorageTransientData, TrieFile, UncommittedState, node_hash_reader::NodeHashReader};
@@ -39,10 +39,9 @@ use super::{TrieStorageTransientData, TrieFile, UncommittedState, node_hash_read
 ///    of the storage functionality.
 ///
 pub struct TrieStorageConnection<'a, TTrieId>
-    where TTrieId: MarfTrieId
 {
     pub db_path: &'a str,
-    pub index: &'a TrieIndex<'a>,
+    pub index: &'a TrieIndex<'a, TTrieId>,
     pub blobs: Option<&'a mut TrieFile>,
     pub data: &'a mut TrieStorageTransientData<TTrieId>,
     pub cache: &'a mut TrieCache<TTrieId>,
@@ -63,12 +62,10 @@ pub struct TrieStorageConnection<'a, TTrieId>
 }
 
 impl<'a, TTrieId> TrieStorageConnection<'a, TTrieId> 
-    where 
-        TTrieId: MarfTrieId
 {
     fn new(
         db_path: &'a str, 
-        index: &'a TrieIndex, 
+        index: &'a TrieIndex<TTrieId>, 
         blobs: Option<&'a mut TrieFile>,
         data: &'a mut TrieStorageTransientData<TTrieId>,
         cache: &'a mut TrieCache<TTrieId>,
@@ -93,7 +90,8 @@ impl<'a, TTrieId> TrieStorageConnection<'a, TTrieId>
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for TrieStorageConnection<'a, TTrieId> {
+impl<'a, TTrieId: MarfTrieId> BlockMap for TrieStorageConnection<'a, TTrieId> {
+    type TrieId = TTrieId;
     fn get_block_hash(&self, id: u32) -> Result<TTrieId, MarfError> {
         //trie_sql::get_block_hash(&self.db, id)
         self.index.get_block_hash(id)
@@ -521,7 +519,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
             if &self.data.cur_block == uncommitted_bhh {
                 // storage currently points to uncommitted state
                 let start_time = self.bench.write_children_hashes_start();
-                let res = TrieStorageConnection::inner_write_children_hashes(
+                let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                     uncommitted_trie.trie_ram_mut(),
                     &mut map,
                     node,
@@ -561,7 +559,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
                     MarfError::NotFoundError
                 })?,
             };
-            let res = TrieStorageConnection::inner_write_children_hashes(
+            let res = TrieStorageConnection::<TTrieId>::inner_write_children_hashes(
                 &mut cursor,
                 &mut map,
                 node,
@@ -574,7 +572,7 @@ impl<'a, TTrieId: MarfTrieId> TrieStorageConnection<'a, TTrieId> {
     }
 
     /// Inner method for calculating a node's hash, by hashing its children.
-    fn inner_write_children_hashes<W: Write, H: NodeHashReader, M: BlockMap<TTrieId>>(
+    fn inner_write_children_hashes<W: Write, H: NodeHashReader, M: BlockMap>(
         hash_reader: &mut H,
         map: &mut M,
         node: &TrieNodeType,

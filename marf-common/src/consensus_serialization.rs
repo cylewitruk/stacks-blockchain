@@ -20,7 +20,7 @@ use crate::{
 ///  both types.
 /// The type `M` is used for any additional data structures required
 ///   (BlockHashMap for TrieNode and () for ProofTrieNode)
-pub trait ConsensusSerializable<M, TTrieId: MarfTrieId> {
+pub trait ConsensusSerializable<M> {
     /// Encode the consensus-relevant bytes of this node and write it to w.
     fn write_consensus_bytes<W: Write>(
         &self,
@@ -37,7 +37,7 @@ pub trait ConsensusSerializable<M, TTrieId: MarfTrieId> {
     }
 }
 
-impl<TTrieId: MarfTrieId, TBlockMap: BlockMap<TTrieId>, T: TrieNode> ConsensusSerializable<TBlockMap, TTrieId> for T {
+impl<TBlockMap: BlockMap, T: TrieNode> ConsensusSerializable<TBlockMap> for T {
     fn write_consensus_bytes<W: Write>(&self, map: &mut TBlockMap, w: &mut W) -> Result<(), MarfError> {
         w.write_all(&[self.id()])?;
         Utils::ptrs_consensus_hash(self.ptrs(), map, w)?;
@@ -53,7 +53,7 @@ impl<TTrieId: MarfTrieId, TBlockMap: BlockMap<TTrieId>, T: TrieNode> ConsensusSe
     }
 }*/
 
-impl<T: MarfTrieId> ConsensusSerializable<(), T> for ProofTrieNode<T> {
+impl<T: MarfTrieId> ConsensusSerializable<()> for ProofTrieNode<T> {
     fn write_consensus_bytes<W: Write>(
         &self,
         _additional_data: &mut (),

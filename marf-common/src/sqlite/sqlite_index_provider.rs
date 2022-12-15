@@ -1,21 +1,22 @@
-use std::{fs, io::{self, Read, Cursor}};
+use std::{fs, io::{self, Read, Cursor}, marker::PhantomData};
 
 use rusqlite::{Connection, NO_PARAMS, ToSql, OptionalExtension, Transaction, OpenFlags};
-use stacks_common::types::chainstate::TrieHash;
+use stacks_common::types::chainstate::{TrieHash};
 
-use crate::{storage::TrieStorageConnection, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, BlockMap, tries::{TrieNodeType, TriePtr}, index::TrieIndex};
+use crate::{storage::TrieStorageConnection, MarfError, utils::Utils, MarfTrieId, MarfOpenOpts, tries::{TrieNodeType, TriePtr}, index::TrieIndex};
 
 use super::SqliteUtils;
 
 #[derive(Debug)]
-pub struct SqliteIndexProvider<'a> {
+pub struct SqliteIndexProvider<'a, TTrieId: MarfTrieId> {
     db_path: &'a str,
     db: Connection,
     tx: Option<Transaction<'a>>,
-    marf_opts: &'a MarfOpenOpts
+    marf_opts: &'a MarfOpenOpts,
+    trie_id: PhantomData<TTrieId>
 }
 
-impl SqliteIndexProvider<'_> {
+impl<'a, TTrieId: MarfTrieId> SqliteIndexProvider<'a, TTrieId> {
     /// Returns a new instance of `SqliteIndexProvider` using the provided `rusqlite::Connection`.
     fn new(db_path: &str, db: Connection, marf_opts: &MarfOpenOpts) -> Self {
         SqliteIndexProvider { db, tx: None, db_path, marf_opts }
@@ -215,8 +216,6 @@ impl SqliteIndexProvider<'_> {
 }
 
 impl<'a> SqliteIndexProvider<'a> {
-    
-
     pub fn get_block_identifier<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
         self.db.query_row(
                 "SELECT block_id FROM marf_data WHERE block_hash = ?",
@@ -561,7 +560,7 @@ impl<'a> SqliteIndexProvider<'a> {
         return Ok(cursor);
     }
 
-    fn reopen_readonly(&self) -> Result<TrieIndex, MarfError> {
+    fn reopen_readonly<TTrieId>(&self) -> Result<TrieIndex<TTrieId>, MarfError> {
         let provider = SqliteIndexProvider::new_from_db_path(&self.db_path, true, self.marf_opts)?;
         Ok(TrieIndex::SQLite(provider))
     }
@@ -589,6 +588,40 @@ impl<'a> SqliteIndexProvider<'a> {
         Ok(())
     }
 
+    // BlockMap functions
+
+    /// Retrieves the block hash for the specified block id.
+    fn get_block_hash<TTrieId: MarfTrieId>(&self, local_id: u32) -> Result<TTrieId, MarfError> {
+        let result = self.db
+            .query_row(
+                "SELECT block_hash FROM marf_data WHERE block_id = ?",
+                &[local_id],
+                |row| row.get("block_hash"),
+            )
+            .optional()?;
+            
+        result.ok_or_else(|| {
+            error!("Failed to get block header hash of local ID {}", local_id);
+            MarfError::NotFoundError
+        })
+    }
+
+    fn get_block_hash_caching<TTrieId: MarfTrieId>(&mut self, id: u32) -> Result<&TTrieId, MarfError> {
+        todo!()
+    }
+
+    fn is_block_hash_cached(&self, id: u32) -> bool {
+        todo!()
+    }
+
+    fn get_block_id<TTrieId: MarfTrieId>(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
+        todo!()
+    }
+
+    fn get_block_id_caching<TTrieId: MarfTrieId>(&mut self, bhh: &TTrieId) -> Result<u32, MarfError> {
+        todo!()
+    }
+
     #[cfg(test)]
     fn read_all_block_hashes_and_offsets<TTrieId: MarfTrieId>(&self) -> Result<Vec<(TTrieId, u64)>, MarfError> {
 
@@ -604,36 +637,4 @@ impl<'a> SqliteIndexProvider<'a> {
     }
 }
 
-impl<'a, TTrieId: MarfTrieId> BlockMap<TTrieId> for SqliteIndexProvider<'a> {
-    /// Retrieves the block hash for the specified block id.
-    fn get_block_hash(&self, local_id: u32) -> Result<TTrieId, MarfError> {
-        let result = self.db
-            .query_row(
-                "SELECT block_hash FROM marf_data WHERE block_id = ?",
-                &[local_id],
-                |row| row.get("block_hash"),
-            )
-            .optional()?;
-            
-        result.ok_or_else(|| {
-            error!("Failed to get block header hash of local ID {}", local_id);
-            MarfError::NotFoundError
-        })
-    }
-
-    fn get_block_hash_caching(&mut self, id: u32) -> Result<&TTrieId, MarfError> {
-        todo!()
-    }
-
-    fn is_block_hash_cached(&self, id: u32) -> bool {
-        todo!()
-    }
-
-    fn get_block_id(&self, bhh: &TTrieId) -> Result<u32, MarfError> {
-        todo!()
-    }
-
-    fn get_block_id_caching(&mut self, bhh: &TTrieId) -> Result<u32, MarfError> {
-        todo!()
-    }
-}
+    

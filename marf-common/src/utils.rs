@@ -115,7 +115,7 @@ impl Utils {
         Ok(nid)
     }
 
-    pub fn ptrs_consensus_hash<T: MarfTrieId, W: Write, M: BlockMap<T>>(
+    pub fn ptrs_consensus_hash<W: Write, M: BlockMap>(
         ptrs: &[TriePtr],
         map: &mut M,
         w: &mut W,
@@ -201,7 +201,7 @@ impl Utils {
 
 
     /// Calculate the hash of a TrieNode, given its childrens' hashes.
-    pub fn get_node_hash<TTrieId: MarfTrieId, M, T: ConsensusSerializable<M, TTrieId> + std::fmt::Debug>(
+    pub fn get_node_hash<M, T: ConsensusSerializable<M> + std::fmt::Debug>(
         node: &T,
         child_hashes: &Vec<TrieHash>,
         map: &mut M,
@@ -244,7 +244,7 @@ impl Utils {
         ret
     }
 
-    pub fn get_nodetype_hash_bytes<TTrieId: MarfTrieId, M: BlockMap<TTrieId>>(
+    pub fn get_nodetype_hash_bytes<M: BlockMap>(
         node: &TrieNodeType,
         child_hash_bytes: &Vec<TrieHash>,
         map: &mut M,
