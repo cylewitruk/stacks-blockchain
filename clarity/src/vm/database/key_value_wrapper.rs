@@ -17,16 +17,15 @@
 use std::collections::HashMap;
 use std::{clone::Clone, cmp::Eq, hash::Hash};
 
+use stacks_common::util::hash::Sha512Trunc256Sum;
+
+use super::clarity_store::SpecialCaseHandler;
+use super::{ClarityBackingStore, ClarityDeserializable};
+use crate::types::chainstate::StacksBlockId;
 use crate::vm::database::clarity_store::make_contract_hash_key;
 use crate::vm::errors::InterpreterResult as Result;
 use crate::vm::types::{QualifiedContractIdentifier, TypeSignature};
 use crate::vm::Value;
-use stacks_common::util::hash::Sha512Trunc256Sum;
-
-use crate::types::chainstate::StacksBlockId;
-
-use super::clarity_store::SpecialCaseHandler;
-use super::{ClarityBackingStore, ClarityDeserializable};
 
 #[cfg(rollback_value_check)]
 type RollbackValueCheck = String;
@@ -34,10 +33,10 @@ type RollbackValueCheck = String;
 type RollbackValueCheck = ();
 
 #[cfg(not(rollback_value_check))]
-fn rollback_value_check(_value: &String, _check: &RollbackValueCheck) {}
+fn rollback_value_check(_value: &str, _check: &RollbackValueCheck) {}
 
 #[cfg(not(rollback_value_check))]
-fn rollback_edits_push<T>(edits: &mut Vec<(T, RollbackValueCheck)>, key: T, _value: &String) {
+fn rollback_edits_push<T>(edits: &mut Vec<(T, RollbackValueCheck)>, key: T, _value: &str) {
     edits.push((key, ()));
 }
 // this function is used to check the lookup map when committing at the "bottom" of the

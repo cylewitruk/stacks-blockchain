@@ -1,21 +1,22 @@
-use crate::burnchains::Txid;
-use crate::chainstate::stacks::StacksMicroblockHeader;
-use crate::chainstate::stacks::StacksTransaction;
-use crate::codec::StacksMessageCodec;
-use crate::types::chainstate::StacksAddress;
 use clarity::util::hash::to_hex;
 use clarity::vm::analysis::ContractAnalysis;
 use clarity::vm::costs::ExecutionCost;
+pub use clarity::vm::events::StacksTransactionEvent;
 use clarity::vm::types::{
     AssetIdentifier, PrincipalData, QualifiedContractIdentifier, StandardPrincipalData, Value,
 };
 
-pub use clarity::vm::events::StacksTransactionEvent;
+use crate::burnchains::Txid;
+use crate::chainstate::burn::operations::BlockstackOperationType;
+use crate::chainstate::stacks::StacksMicroblockHeader;
+use crate::chainstate::stacks::StacksTransaction;
+use crate::codec::StacksMessageCodec;
+use crate::types::chainstate::StacksAddress;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionOrigin {
     Stacks(StacksTransaction),
-    Burn(Txid),
+    Burn(BlockstackOperationType),
 }
 
 impl From<StacksTransaction> for TransactionOrigin {
@@ -27,7 +28,7 @@ impl From<StacksTransaction> for TransactionOrigin {
 impl TransactionOrigin {
     pub fn txid(&self) -> Txid {
         match self {
-            TransactionOrigin::Burn(txid) => txid.clone(),
+            TransactionOrigin::Burn(op) => op.txid(),
             TransactionOrigin::Stacks(tx) => tx.txid(),
         }
     }
@@ -35,7 +36,7 @@ impl TransactionOrigin {
     ///  a database
     pub fn serialize_to_dbstring(&self) -> String {
         match self {
-            TransactionOrigin::Burn(txid) => format!("BTC({})", txid),
+            TransactionOrigin::Burn(op) => format!("BTC({})", op.txid()),
             TransactionOrigin::Stacks(tx) => to_hex(&tx.serialize_to_vec()),
         }
     }

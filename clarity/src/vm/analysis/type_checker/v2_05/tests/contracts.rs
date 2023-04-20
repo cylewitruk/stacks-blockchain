@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use assert_json_diff;
+use assert_json_diff::assert_json_eq;
 use serde_json;
 use stacks_common::types::StacksEpochId;
 
@@ -171,6 +171,7 @@ fn test_names_tokens_contracts_interface() {
         serde_json::from_str(&test_contract_json_str).unwrap();
 
     let test_contract_json_expected: serde_json::Value = serde_json::from_str(r#"{
+        "epoch": "Epoch2_05",
         "clarity_version": "Clarity1",
         "functions": [
             { "name": "f00",

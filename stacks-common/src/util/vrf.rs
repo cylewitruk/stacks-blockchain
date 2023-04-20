@@ -17,12 +17,13 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::util::hash::to_hex;
 use std::clone::Clone;
 use std::cmp::Eq;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::cmp::PartialEq;
+use std::error;
+use std::fmt;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 /// This codebase is based on routines defined in the IETF draft for verifiable random functions
@@ -30,22 +31,18 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use ed25519_dalek::Keypair as VRFKeypair;
-use ed25519_dalek::PublicKey as ed25519_PublicKey;
-use ed25519_dalek::SecretKey as ed25519_PrivateKey;
-
 use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use curve25519_dalek::scalar::Scalar as ed25519_Scalar;
-
+use ed25519_dalek::Keypair as VRFKeypair;
+use ed25519_dalek::PublicKey as ed25519_PublicKey;
+use ed25519_dalek::SecretKey as ed25519_PrivateKey;
+use rand;
 use sha2::Digest;
 use sha2::Sha512;
 
-use std::error;
-use std::fmt;
-
 use crate::util::hash::hex_bytes;
-use rand;
+use crate::util::hash::to_hex;
 
 #[derive(Clone)]
 pub struct VRFPublicKey(pub ed25519_PublicKey);
@@ -156,7 +153,7 @@ impl VRFPrivateKey {
         VRFPrivateKey(keypair.secret)
     }
 
-    pub fn from_hex(h: &String) -> Option<VRFPrivateKey> {
+    pub fn from_hex(h: &str) -> Option<VRFPrivateKey> {
         match hex_bytes(h) {
             Ok(b) => match ed25519_PrivateKey::from_bytes(&b[..]) {
                 Ok(pk) => Some(VRFPrivateKey(pk)),
@@ -356,11 +353,11 @@ impl VRFProof {
         }
     }
 
-    pub fn from_bytes(bytes: &Vec<u8>) -> Option<VRFProof> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<VRFProof> {
         VRFProof::from_slice(&bytes[..])
     }
 
-    pub fn from_hex(hex_str: &String) -> Option<VRFProof> {
+    pub fn from_hex(hex_str: &str) -> Option<VRFProof> {
         match hex_bytes(hex_str) {
             Ok(b) => VRFProof::from_slice(&b[..]),
             Err(_) => None,
@@ -556,11 +553,7 @@ impl VRF {
     /// Return Ok(false) if not
     /// Return Err(Error) if the public key is invalid, or we are unable to do one of the
     /// necessary internal data conversions.
-    pub fn verify(
-        Y_point: &VRFPublicKey,
-        proof: &VRFProof,
-        alpha: &Vec<u8>,
-    ) -> Result<bool, Error> {
+    pub fn verify(Y_point: &VRFPublicKey, proof: &VRFProof, alpha: &[u8]) -> Result<bool, Error> {
         let H_point = VRF::hash_to_curve(Y_point, alpha);
         let s_reduced = proof.s().reduce();
         let Y_point_ed = CompressedEdwardsY(Y_point.to_bytes())
@@ -592,16 +585,13 @@ impl VRF {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::util::hash::hex_bytes;
-
     use curve25519_dalek::scalar::Scalar as ed25519_Scalar;
-
-    use sha2::Sha512;
-
     use rand;
     use rand::RngCore;
+    use sha2::Sha512;
+
+    use super::*;
+    use crate::util::hash::hex_bytes;
 
     #[derive(Debug)]
     struct VRF_Proof_Fixture {

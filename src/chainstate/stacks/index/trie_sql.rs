@@ -37,19 +37,23 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Error as SqliteError, OptionalExtension, Transaction, NO_PARAMS, Statement
 };
+use stacks_common::types::chainstate::{
+    TrieHash, TRIEHASH_ENCODED_SIZE, BLOCK_HEADER_HASH_ENCODED_SIZE, BlockHeaderHash, BlobCompressionType
+};
+use stacks_common::util::log;
 
 use crate::chainstate::stacks::index::bits::{
     get_node_byte_len, get_node_hash, read_block_identifier, read_hash_bytes,
     read_node_hash_bytes as bits_read_node_hash_bytes, read_nodetype, read_nodetype_nohash,
     write_nodetype_bytes,
 };
-
 use crate::chainstate::stacks::index::node::{
     clear_backptr, is_backptr, set_backptr, TrieNode, TrieNode16, TrieNode256, TrieNode4,
     TrieNode48, TrieNodeID, TrieNodeType, TriePath, TriePtr,
 };
 use crate::chainstate::stacks::index::storage::{TrieFileStorage, TrieStorageConnection};
 use crate::chainstate::stacks::index::Error;
+use crate::chainstate::stacks::index::TrieLeaf;
 use crate::chainstate::stacks::index::{trie_sql, BlockMap, MarfTrieId};
 use crate::util_lib::db::{query_count, u8_to_sql, FromRow, FromColumn};
 use crate::util_lib::db::query_row;
@@ -57,13 +61,6 @@ use crate::util_lib::db::query_rows;
 use crate::util_lib::db::sql_pragma;
 use crate::util_lib::db::tx_begin_immediate;
 use crate::util_lib::db::u64_to_sql;
-use crate::util_lib::db;
-use stacks_common::util::log;
-
-use crate::chainstate::stacks::index::TrieLeaf;
-use stacks_common::types::chainstate::{
-    TrieHash, TRIEHASH_ENCODED_SIZE, BLOCK_HEADER_HASH_ENCODED_SIZE, BlobCompressionType, BlockHeaderHash
-};
 
 static SQL_MARF_DATA_TABLE: &str = "
 CREATE TABLE IF NOT EXISTS marf_data (

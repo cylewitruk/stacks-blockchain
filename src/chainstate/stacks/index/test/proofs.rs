@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use super::*;
 use crate::chainstate::stacks::index::marf::*;
 use crate::chainstate::stacks::index::test::*;
 use crate::chainstate::stacks::index::*;
 use stacks_common::types::chainstate::MARFOpenOpts;
-
-use super::*;
 
 #[test]
 fn verifier_catches_stale_proof() {

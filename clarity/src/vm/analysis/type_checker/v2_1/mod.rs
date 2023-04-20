@@ -18,8 +18,22 @@ pub mod contexts;
 //mod maps;
 pub mod natives;
 
+use std::collections::{BTreeMap, HashMap};
+use std::convert::TryInto;
+
 use stacks_common::types::StacksEpochId;
 
+use self::contexts::ContractContext;
+pub use self::natives::{SimpleNativeFunction, TypedNativeFunction};
+use super::contexts::{TypeMap, TypingContext};
+use super::{AnalysisPass, ContractAnalysis};
+pub use crate::vm::analysis::errors::{
+    check_argument_count, check_arguments_at_least, check_arguments_at_most, CheckError,
+    CheckErrors, CheckResult,
+};
+use crate::vm::analysis::AnalysisDatabase;
+use crate::vm::contexts::Environment;
+use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{
     analysis_typecheck_cost, cost_functions, runtime_cost, ClarityCostFunctionReference,
     CostErrors, CostOverflowingMath, CostTracker, ExecutionCost, LimitedCostTracker,
@@ -40,24 +54,7 @@ use crate::vm::types::{
     TypeSignature, Value, MAX_TYPE_DEPTH,
 };
 use crate::vm::variables::NativeVariables;
-use std::collections::{BTreeMap, HashMap};
-use std::convert::TryInto;
-
 use crate::vm::ClarityVersion;
-
-use self::contexts::ContractContext;
-use super::contexts::{TypeMap, TypingContext};
-use super::{AnalysisPass, ContractAnalysis};
-use crate::vm::analysis::AnalysisDatabase;
-
-pub use self::natives::{SimpleNativeFunction, TypedNativeFunction};
-
-pub use crate::vm::analysis::errors::{
-    check_argument_count, check_arguments_at_least, check_arguments_at_most, CheckError,
-    CheckErrors, CheckResult,
-};
-use crate::vm::contexts::Environment;
-use crate::vm::costs::cost_functions::ClarityCostFunction;
 
 #[cfg(test)]
 pub mod tests;
@@ -429,11 +426,17 @@ impl FunctionType {
                         TypeSignature::CallableType(CallableSubtype::Trait(trait_id)),
                         Value::Principal(PrincipalData::Contract(contract)),
                     ) => {
-                        let contract_to_check = db.load_contract(contract).ok_or_else(|| {
-                            CheckErrors::NoSuchContract(contract.name.to_string())
-                        })?;
+                        let contract_to_check = db
+                            .load_contract(contract, &StacksEpochId::Epoch21)
+                            .ok_or_else(|| {
+                                CheckErrors::NoSuchContract(contract.name.to_string())
+                            })?;
                         let trait_definition = db
-                            .get_defined_trait(&trait_id.contract_identifier, &trait_id.name)
+                            .get_defined_trait(
+                                &trait_id.contract_identifier,
+                                &trait_id.name,
+                                &StacksEpochId::Epoch21,
+                            )
                             .unwrap()
                             .ok_or(CheckErrors::NoSuchContract(
                                 trait_id.contract_identifier.to_string(),
@@ -693,7 +696,7 @@ fn clarity2_inner_type_check_type<T: CostTracker>(
                             expected_type.clone(),
                             actual_type.clone(),
                         )
-                        .into())
+                        .into());
                     }
                 }
             }
@@ -722,7 +725,9 @@ fn clarity2_inner_type_check_type<T: CostTracker>(
             TypeSignature::CallableType(CallableSubtype::Principal(contract_identifier)),
             TypeSignature::CallableType(CallableSubtype::Trait(expected_trait_id)),
         ) => {
-            let contract_to_check = match db.load_contract(&contract_identifier) {
+            let contract_to_check = match db
+                .load_contract(&contract_identifier, &StacksEpochId::Epoch21)
+            {
                 Some(contract) => {
                     runtime_cost(
                         ClarityCostFunction::AnalysisFetchContractEntry,
@@ -794,7 +799,11 @@ fn clarity2_lookup_trait<T: CostTracker>(
         }
     }
 
-    match db.get_defined_trait(&trait_id.contract_identifier, &trait_id.name) {
+    match db.get_defined_trait(
+        &trait_id.contract_identifier,
+        &trait_id.name,
+        &StacksEpochId::Epoch21,
+    ) {
         Ok(Some(trait_sig)) => {
             let type_size = trait_type_size(&trait_sig)?;
             runtime_cost(
@@ -1228,12 +1237,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ) => {
                 let contract_to_check = self
                     .db
-                    .load_contract(&contract_identifier)
+                    .load_contract(&contract_identifier, &StacksEpochId::Epoch21)
                     .ok_or(CheckErrors::NoSuchContract(contract_identifier.to_string()))?;
 
                 let contract_defining_trait = self
                     .db
-                    .load_contract(&trait_identifier.contract_identifier)
+                    .load_contract(
+                        &trait_identifier.contract_identifier,
+                        &StacksEpochId::Epoch21,
+                    )
                     .ok_or(CheckErrors::NoSuchContract(
                         trait_identifier.contract_identifier.to_string(),
                     ))?;
@@ -1531,6 +1543,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     let result = self.db.get_defined_trait(
                         &trait_identifier.contract_identifier,
                         &trait_identifier.name,
+                        &StacksEpochId::Epoch21,
                     )?;
                     match result {
                         Some(trait_sig) => {

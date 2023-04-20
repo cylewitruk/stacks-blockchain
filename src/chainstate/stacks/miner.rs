@@ -26,11 +26,27 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread::ThreadId;
 
+use clarity::vm::analysis::{CheckError, CheckErrors};
+use clarity::vm::ast::errors::ParseErrors;
+use clarity::vm::ast::ASTRules;
+use clarity::vm::clarity::TransactionConnection;
+use clarity::vm::database::BurnStateDB;
+use clarity::vm::errors::Error as InterpreterError;
+use clarity::vm::types::TypeSignature;
+use serde::Deserialize;
+use stacks_common::util::get_epoch_time_ms;
+use stacks_common::util::hash::MerkleTree;
+use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::secp256k1::{MessageSignature, Secp256k1PrivateKey};
+use stacks_common::util::vrf::*;
+
 use crate::burnchains::PrivateKey;
 use crate::burnchains::PublicKey;
 use crate::chainstate::burn::db::sortdb::{SortitionDB, SortitionDBConn, SortitionHandleTx};
 use crate::chainstate::burn::operations::*;
 use crate::chainstate::burn::*;
+use crate::chainstate::stacks::address::StacksAddressExtensions;
+use crate::chainstate::stacks::db::blocks::SetupBlockResult;
 use crate::chainstate::stacks::db::transactions::{
     handle_clarity_runtime_error, ClarityRuntimeTxError,
 };
@@ -41,38 +57,22 @@ use crate::chainstate::stacks::db::{
 };
 use crate::chainstate::stacks::events::{StacksTransactionEvent, StacksTransactionReceipt};
 use crate::chainstate::stacks::Error;
+use crate::chainstate::stacks::StacksBlockHeader;
+use crate::chainstate::stacks::StacksMicroblockHeader;
 use crate::chainstate::stacks::*;
 use crate::clarity_vm::clarity::{ClarityConnection, ClarityInstance};
+use crate::codec::{read_next, write_next, StacksMessageCodec};
 use crate::core::mempool::*;
 use crate::core::*;
 use crate::cost_estimates::metrics::CostMetric;
 use crate::cost_estimates::CostEstimator;
 use crate::net::relay::Relayer;
 use crate::net::Error as net_error;
-use crate::types::StacksPublicKeyBuffer;
-use clarity::vm::database::BurnStateDB;
-use serde::Deserialize;
-use stacks_common::util::get_epoch_time_ms;
-use stacks_common::util::hash::MerkleTree;
-use stacks_common::util::hash::Sha512Trunc256Sum;
-use stacks_common::util::secp256k1::{MessageSignature, Secp256k1PrivateKey};
-use stacks_common::util::vrf::*;
-
-use crate::chainstate::stacks::address::StacksAddressExtensions;
-use crate::chainstate::stacks::db::blocks::SetupBlockResult;
-use crate::chainstate::stacks::StacksBlockHeader;
-use crate::chainstate::stacks::StacksMicroblockHeader;
-use crate::codec::{read_next, write_next, StacksMessageCodec};
 use crate::types::chainstate::BurnchainHeaderHash;
 use crate::types::chainstate::StacksBlockId;
 use crate::types::chainstate::TrieHash;
 use crate::types::chainstate::{BlockHeaderHash, StacksAddress, StacksWorkScore};
-use clarity::vm::analysis::{CheckError, CheckErrors};
-use clarity::vm::ast::errors::ParseErrors;
-use clarity::vm::ast::ASTRules;
-use clarity::vm::clarity::TransactionConnection;
-use clarity::vm::errors::Error as InterpreterError;
-use clarity::vm::types::TypeSignature;
+use crate::types::StacksPublicKeyBuffer;
 
 /// System status for mining.
 /// The miner can be Ready, in which case a miner is allowed to run
@@ -83,12 +83,14 @@ use clarity::vm::types::TypeSignature;
 #[derive(Debug, Clone, PartialEq)]
 pub struct MinerStatus {
     blockers: HashSet<ThreadId>,
+    spend_amount: u64,
 }
 
 impl MinerStatus {
-    pub fn make_ready() -> MinerStatus {
+    pub fn make_ready(spend_amount: u64) -> MinerStatus {
         MinerStatus {
             blockers: HashSet::new(),
+            spend_amount,
         }
     }
 
@@ -107,6 +109,13 @@ impl MinerStatus {
         } else {
             false
         }
+    }
+
+    pub fn get_spend_amount(&self) -> u64 {
+        return self.spend_amount;
+    }
+    pub fn set_spend_amount(&mut self, amt: u64) {
+        self.spend_amount = amt;
     }
 }
 
@@ -140,6 +149,24 @@ pub fn signal_mining_ready(miner_status: Arc<Mutex<MinerStatus>>) {
     }
 }
 
+/// get the mining amount
+pub fn get_mining_spend_amount(miner_status: Arc<Mutex<MinerStatus>>) -> u64 {
+    match miner_status.lock() {
+        Ok(status) => status.get_spend_amount(),
+        Err(_e) => {
+            panic!("FATAL: mutex poisoned");
+        }
+    }
+}
+
+/// set the mining amount
+pub fn set_mining_spend_amount(miner_status: Arc<Mutex<MinerStatus>>, amt: u64) {
+    miner_status
+        .lock()
+        .expect("FATAL: mutex poisoned")
+        .set_spend_amount(amt);
+}
+
 #[derive(Debug, Clone)]
 pub struct BlockBuilderSettings {
     pub max_miner_time_ms: u64,
@@ -152,7 +179,7 @@ impl BlockBuilderSettings {
         BlockBuilderSettings {
             max_miner_time_ms: u64::max_value(),
             mempool_settings: MemPoolWalkSettings::default(),
-            miner_status: Arc::new(Mutex::new(MinerStatus::make_ready())),
+            miner_status: Arc::new(Mutex::new(MinerStatus::make_ready(0))),
         }
     }
 
@@ -160,7 +187,7 @@ impl BlockBuilderSettings {
         BlockBuilderSettings {
             max_miner_time_ms: u64::max_value(),
             mempool_settings: MemPoolWalkSettings::zero(),
-            miner_status: Arc::new(Mutex::new(MinerStatus::make_ready())),
+            miner_status: Arc::new(Mutex::new(MinerStatus::make_ready(0))),
         }
     }
 }

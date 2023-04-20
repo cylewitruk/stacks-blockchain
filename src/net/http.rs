@@ -29,18 +29,41 @@ use std::str;
 use std::str::FromStr;
 use std::time::SystemTime;
 
+use clarity::vm::ast::parser::v1::CLARITY_NAME_REGEX;
 use clarity::vm::representations::MAX_STRING_LEN;
+use clarity::vm::types::{StandardPrincipalData, TraitIdentifier};
+use clarity::vm::{
+    representations::{
+        CONTRACT_NAME_REGEX_STRING, PRINCIPAL_DATA_REGEX_STRING, STANDARD_PRINCIPAL_REGEX_STRING,
+    },
+    types::{PrincipalData, BOUND_VALUE_SERIALIZATION_HEX},
+    ClarityName, ContractName, Value,
+};
+use lazy_static::lazy_static;
 use percent_encoding::percent_decode_str;
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use stacks_common::util::hash::hex_bytes;
+use stacks_common::util::hash::to_hex;
+use stacks_common::util::hash::Hash160;
+use stacks_common::util::log;
+use stacks_common::util::retry::BoundReader;
+use stacks_common::util::retry::RetryReader;
 use time;
 use url::{form_urlencoded, Url};
 
+use super::FeeRateEstimateRequestBody;
 use crate::burnchains::{Address, Txid};
-use crate::chainstate::burn::ConsensusHash;
+use crate::chainstate::burn::{ConsensusHash, Opcodes};
+use crate::chainstate::stacks::StacksBlockHeader;
+use crate::chainstate::stacks::TransactionPayload;
 use crate::chainstate::stacks::{
     StacksBlock, StacksMicroblock, StacksPublicKey, StacksTransaction,
+};
+use crate::codec::{
+    read_next, write_next, Error as codec_error, StacksMessageCodec, MAX_MESSAGE_LEN,
+    MAX_PAYLOAD_LEN,
 };
 use crate::deps::httparse;
 use crate::net::atlas::Attachment;
@@ -73,31 +96,7 @@ use crate::net::MAX_HEADERS;
 use crate::net::MAX_MICROBLOCKS_UNCONFIRMED;
 use crate::net::{CallReadOnlyRequestBody, TipRequest};
 use crate::net::{GetAttachmentResponse, GetAttachmentsInvResponse, PostTransactionRequestBody};
-use clarity::vm::ast::parser::v1::CLARITY_NAME_REGEX_STRING;
-use clarity::vm::types::{StandardPrincipalData, TraitIdentifier};
-use clarity::vm::{
-    representations::{
-        CONTRACT_NAME_REGEX_STRING, PRINCIPAL_DATA_REGEX_STRING, STANDARD_PRINCIPAL_REGEX_STRING,
-    },
-    types::{PrincipalData, BOUND_VALUE_SERIALIZATION_HEX},
-    ClarityName, ContractName, Value,
-};
-use stacks_common::util::hash::hex_bytes;
-use stacks_common::util::hash::to_hex;
-use stacks_common::util::hash::Hash160;
-use stacks_common::util::log;
-use stacks_common::util::retry::BoundReader;
-use stacks_common::util::retry::RetryReader;
-
-use crate::chainstate::stacks::StacksBlockHeader;
-use crate::chainstate::stacks::TransactionPayload;
-use crate::codec::{
-    read_next, write_next, Error as codec_error, StacksMessageCodec, MAX_MESSAGE_LEN,
-    MAX_PAYLOAD_LEN,
-};
 use crate::types::chainstate::{BlockHeaderHash, StacksAddress, StacksBlockId};
-
-use super::FeeRateEstimateRequestBody;
 
 lazy_static! {
     static ref PATH_GETINFO: Regex = Regex::new(r#"^/v2/info$"#).unwrap();
@@ -124,17 +123,17 @@ lazy_static! {
     .unwrap();
     static ref PATH_GET_DATA_VAR: Regex = Regex::new(&format!(
         "^/v2/data_var/(?P<address>{})/(?P<contract>{})/(?P<varname>{})$",
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX_STRING
+        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX
     ))
     .unwrap();
     static ref PATH_GET_MAP_ENTRY: Regex = Regex::new(&format!(
         "^/v2/map_entry/(?P<address>{})/(?P<contract>{})/(?P<map>{})$",
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX_STRING
+        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX
     ))
     .unwrap();
     static ref PATH_POST_CALL_READ_ONLY: Regex = Regex::new(&format!(
         "^/v2/contracts/call-read/(?P<address>{})/(?P<contract>{})/(?P<function>{})$",
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX_STRING
+        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX
     ))
     .unwrap();
     static ref PATH_GET_CONTRACT_SRC: Regex = Regex::new(&format!(
@@ -144,7 +143,7 @@ lazy_static! {
     .unwrap();
     static ref PATH_GET_IS_TRAIT_IMPLEMENTED: Regex = Regex::new(&format!(
         "^/v2/traits/(?P<address>{})/(?P<contract>{})/(?P<traitContractAddr>{})/(?P<traitContractName>{})/(?P<traitName>{})$",
-        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX_STRING
+        *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX
     ))
     .unwrap();
     static ref PATH_GET_CONTRACT_ABI: Regex = Regex::new(&format!(
@@ -158,6 +157,8 @@ lazy_static! {
         Regex::new(r#"^/v2/attachments/([0-9a-f]{40})$"#).unwrap();
     static ref PATH_POST_MEMPOOL_QUERY: Regex =
         Regex::new(r#"^/v2/mempool/query$"#).unwrap();
+    static ref PATH_GET_BURN_OPS: Regex =
+        Regex::new(r#"^/v2/burn_ops/(?P<height>[0-9]{1,20})/(?P<op>[a-z_]{1,20})$"#).unwrap();
     static ref PATH_OPTIONS_WILDCARD: Regex = Regex::new("^/v2/.{0,4096}$").unwrap();
 }
 
@@ -1602,6 +1603,11 @@ impl HttpRequestType {
                 &PATH_POST_MEMPOOL_QUERY,
                 &HttpRequestType::parse_post_mempool_query,
             ),
+            (
+                "GET",
+                &PATH_GET_BURN_OPS,
+                &HttpRequestType::parse_get_burn_ops,
+            ),
         ];
 
         // use url::Url to parse path and query string
@@ -1985,6 +1991,25 @@ impl HttpRequestType {
             contract_addr,
             contract_name,
         ))
+    }
+
+    fn parse_get_burn_ops<R: Read>(
+        _protocol: &mut StacksHttp,
+        preamble: &HttpRequestPreamble,
+        captures: &Captures,
+        _query: Option<&str>,
+        _fd: &mut R,
+    ) -> Result<HttpRequestType, net_error> {
+        let height = u64::from_str(&captures["height"])
+            .map_err(|_| net_error::DeserializeError("Failed to parse u64 height".into()))?;
+
+        let opcode = Opcodes::from_http_str(&captures["op"]).ok_or_else(|| {
+            net_error::DeserializeError(format!("Unsupported burn operation: {}", &captures["op"]))
+        })?;
+
+        let md = HttpRequestMetadata::from_preamble(preamble);
+
+        Ok(HttpRequestType::GetBurnOps { md, height, opcode })
     }
 
     fn parse_get_contract_abi<R: Read>(
@@ -2705,6 +2730,7 @@ impl HttpRequestType {
             HttpRequestType::MemPoolQuery(ref md, ..) => md,
             HttpRequestType::FeeRateEstimate(ref md, _, _) => md,
             HttpRequestType::ClientError(ref md, ..) => md,
+            HttpRequestType::GetBurnOps { ref md, .. } => md,
         }
     }
 
@@ -2735,6 +2761,7 @@ impl HttpRequestType {
             HttpRequestType::GetAttachment(ref mut md, ..) => md,
             HttpRequestType::MemPoolQuery(ref mut md, ..) => md,
             HttpRequestType::FeeRateEstimate(ref mut md, _, _) => md,
+            HttpRequestType::GetBurnOps { ref mut md, .. } => md,
             HttpRequestType::ClientError(ref mut md, ..) => md,
         }
     }
@@ -2909,6 +2936,11 @@ impl HttpRequestType {
                 ClientError::NotFound(path) => path.to_string(),
                 _ => "error path unknown".into(),
             },
+            HttpRequestType::GetBurnOps {
+                height, ref opcode, ..
+            } => {
+                format!("/v2/burn_ops/{}/{}", height, opcode.to_http_str())
+            }
         }
     }
 
@@ -2944,6 +2976,7 @@ impl HttpRequestType {
             HttpRequestType::GetIsTraitImplemented(..) => "/v2/traits/:principal/:contract_name",
             HttpRequestType::MemPoolQuery(..) => "/v2/mempool/query",
             HttpRequestType::FeeRateEstimate(_, _, _) => "/v2/fees/transaction",
+            HttpRequestType::GetBurnOps { .. } => "/v2/burn_ops/:height/:opname",
             HttpRequestType::OptionsPreflight(..) | HttpRequestType::ClientError(..) => "/",
         }
     }
@@ -3143,7 +3176,7 @@ impl HttpResponseType {
         regex: &Regex,
         request_version: HttpVersion,
         preamble: &HttpResponsePreamble,
-        request_path: &String,
+        request_path: &str,
         fd: &mut R,
         len_hint: Option<usize>,
         parser: F,
@@ -4021,6 +4054,7 @@ impl HttpResponseType {
             HttpResponseType::MemPoolTxs(ref md, ..) => md,
             HttpResponseType::OptionsPreflight(ref md) => md,
             HttpResponseType::TransactionFeeEstimation(ref md, _) => md,
+            HttpResponseType::GetBurnchainOps(ref md, _) => md,
             // errors
             HttpResponseType::BadRequestJSON(ref md, _) => md,
             HttpResponseType::BadRequest(ref md, _) => md,
@@ -4273,6 +4307,10 @@ impl HttpResponseType {
                 HttpResponsePreamble::ok_JSON_from_md(fd, md)?;
                 HttpResponseType::send_json(protocol, md, fd, unconfirmed_status)?;
             }
+            HttpResponseType::GetBurnchainOps(ref md, ref ops) => {
+                HttpResponsePreamble::ok_JSON_from_md(fd, md)?;
+                HttpResponseType::send_json(protocol, md, fd, ops)?;
+            }
             HttpResponseType::MemPoolTxStream(ref md) => {
                 // only send the preamble.  The caller will need to figure out how to send along
                 // the tx data itself.
@@ -4438,6 +4476,7 @@ impl MessageSequence for StacksHttpMessage {
                 HttpRequestType::OptionsPreflight(..) => "HTTP(OptionsPreflight)",
                 HttpRequestType::ClientError(..) => "HTTP(ClientError)",
                 HttpRequestType::FeeRateEstimate(_, _, _) => "HTTP(FeeRateEstimate)",
+                HttpRequestType::GetBurnOps { .. } => "HTTP(GetBurnOps)",
             },
             StacksHttpMessage::Response(ref res) => match res {
                 HttpResponseType::TokenTransferCost(_, _) => "HTTP(TokenTransferCost)",
@@ -4479,6 +4518,7 @@ impl MessageSequence for StacksHttpMessage {
                 HttpResponseType::TransactionFeeEstimation(_, _) => {
                     "HTTP(TransactionFeeEstimation)"
                 }
+                HttpResponseType::GetBurnchainOps(_, _) => "HTTP(GetBurnchainOps)",
             },
         }
     }
@@ -4995,7 +5035,13 @@ mod test {
 
     use rand;
     use rand::RngCore;
+    use stacks_common::types::chainstate::StacksAddress;
+    use stacks_common::util::hash::to_hex;
+    use stacks_common::util::hash::Hash160;
+    use stacks_common::util::hash::MerkleTree;
+    use stacks_common::util::hash::Sha512Trunc256Sum;
 
+    use super::*;
     use crate::burnchains::Txid;
     use crate::chainstate::stacks::db::blocks::test::make_sample_microblock_stream;
     use crate::chainstate::stacks::test::make_codec_test_block;
@@ -5012,14 +5058,6 @@ mod test {
     use crate::net::test::*;
     use crate::net::RPCNeighbor;
     use crate::net::RPCNeighborsInfo;
-    use stacks_common::util::hash::to_hex;
-    use stacks_common::util::hash::Hash160;
-    use stacks_common::util::hash::MerkleTree;
-    use stacks_common::util::hash::Sha512Trunc256Sum;
-
-    use stacks_common::types::chainstate::StacksAddress;
-
-    use super::*;
 
     /// Simulate reading variable-length segments
     struct SegmentReader {

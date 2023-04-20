@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::convert::TryInto;
+
+use stacks_common::types::StacksEpochId;
+
 use crate::vm::ast::ContractAST;
 use crate::vm::callables::CallableType;
 use crate::vm::contexts::{ContractContext, Environment, GlobalContext, LocalContext};
@@ -22,7 +26,6 @@ use crate::vm::representations::SymbolicExpression;
 use crate::vm::types::{PrincipalData, QualifiedContractIdentifier};
 use crate::vm::version::ClarityVersion;
 use crate::vm::{apply, eval_all, Value};
-use std::convert::TryInto;
 
 #[derive(Serialize, Deserialize)]
 pub struct Contract {
@@ -49,5 +52,9 @@ impl Contract {
         )?;
 
         Ok(Contract { contract_context })
+    }
+
+    pub fn canonicalize_types(&mut self, epoch: &StacksEpochId) {
+        self.contract_context.canonicalize_types(epoch);
     }
 }

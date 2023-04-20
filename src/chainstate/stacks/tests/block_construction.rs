@@ -28,9 +28,19 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use clarity::vm::clarity::ClarityConnection;
+use clarity::vm::costs::LimitedCostTracker;
+use clarity::vm::test_util::TEST_BURN_STATE_DB;
+use clarity::vm::types::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rand::Rng;
+use stacks_common::address::*;
+use stacks_common::util::get_epoch_time_ms;
+use stacks_common::util::hash::MerkleTree;
+use stacks_common::util::secp256k1::Secp256k1PrivateKey;
+use stacks_common::util::sleep_ms;
+use stacks_common::util::vrf::VRFProof;
 
 use crate::burnchains::tests::*;
 use crate::burnchains::*;
@@ -44,37 +54,22 @@ use crate::chainstate::stacks::db::blocks::test::store_staging_block;
 use crate::chainstate::stacks::db::test::*;
 use crate::chainstate::stacks::db::*;
 use crate::chainstate::stacks::events::StacksTransactionReceipt;
+use crate::chainstate::stacks::miner::*;
 use crate::chainstate::stacks::test::codec_all_transactions;
+use crate::chainstate::stacks::tests::*;
 use crate::chainstate::stacks::Error as ChainstateError;
 use crate::chainstate::stacks::C32_ADDRESS_VERSION_TESTNET_SINGLESIG;
 use crate::chainstate::stacks::*;
-use crate::core::FIRST_BURNCHAIN_CONSENSUS_HASH;
-use crate::net::test::*;
-use crate::util_lib::db::Error as db_error;
-use clarity::vm::types::*;
-use stacks_common::address::*;
-use stacks_common::util::sleep_ms;
-use stacks_common::util::vrf::VRFProof;
-
-use crate::cost_estimates::metrics::UnitMetric;
-use crate::cost_estimates::UnitEstimator;
-use crate::types::chainstate::SortitionId;
-use crate::util_lib::boot::boot_code_addr;
-
-use clarity::vm::costs::LimitedCostTracker;
-
-use crate::chainstate::stacks::miner::*;
-use crate::chainstate::stacks::tests::*;
 use crate::core::mempool::MemPoolWalkSettings;
 use crate::core::tests::make_block;
+use crate::core::FIRST_BURNCHAIN_CONSENSUS_HASH;
 use crate::core::*;
-
-use stacks_common::util::get_epoch_time_ms;
-use stacks_common::util::hash::MerkleTree;
-use stacks_common::util::secp256k1::Secp256k1PrivateKey;
-
-use clarity::vm::clarity::ClarityConnection;
-use clarity::vm::test_util::TEST_BURN_STATE_DB;
+use crate::cost_estimates::metrics::UnitMetric;
+use crate::cost_estimates::UnitEstimator;
+use crate::net::test::*;
+use crate::types::chainstate::SortitionId;
+use crate::util_lib::boot::boot_code_addr;
+use crate::util_lib::db::Error as db_error;
 
 #[test]
 fn test_build_anchored_blocks_empty() {
@@ -175,11 +170,7 @@ fn test_build_anchored_blocks_stx_transfers_single() {
     )
     .unwrap();
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_stx_transfers_single",
-        2002,
-        2003,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2002, 2003);
     peer_config.initial_balances = vec![(addr.to_account_principal(), 1000000000)];
 
     let mut peer = TestPeer::new(peer_config);
@@ -313,11 +304,7 @@ fn test_build_anchored_blocks_empty_with_builder_timeout() {
     )
     .unwrap();
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_empty_with_builder_timeout",
-        2022,
-        2023,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2022, 2023);
     peer_config.initial_balances = vec![(addr.to_account_principal(), 1000000000)];
 
     let mut peer = TestPeer::new(peer_config);
@@ -615,11 +602,7 @@ fn test_build_anchored_blocks_connected_by_microblocks_across_epoch() {
     )
     .unwrap();
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_connected_by_microblocks_across_epoch",
-        2016,
-        2017,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2016, 2017);
     peer_config.initial_balances = vec![(addr.to_account_principal(), 1000000000)];
 
     let epochs = vec![
@@ -853,11 +836,7 @@ fn test_build_anchored_blocks_connected_by_microblocks_across_epoch_invalid() {
     )
     .unwrap();
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_connected_by_microblocks_across_epoch_invalid",
-        2018,
-        2019,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2018, 2019);
     peer_config.initial_balances = vec![(addr.to_account_principal(), 1000000000)];
 
     let epochs = vec![
@@ -1566,11 +1545,7 @@ fn test_build_anchored_blocks_multiple_chaintips() {
 
     // make a blank chainstate and mempool so we can mine empty blocks
     //  without punishing the correspondingly "too expensive" transactions
-    let blank_chainstate = instantiate_chainstate(
-        false,
-        1,
-        "test_build_anchored_blocks_multiple_chaintips_blank",
-    );
+    let blank_chainstate = instantiate_chainstate(false, 1, function_name!());
     let mut blank_mempool = MemPoolDB::open_test(false, 1, &blank_chainstate.root_path).unwrap();
 
     let first_stacks_block_height = {
@@ -1845,11 +1820,7 @@ fn test_build_anchored_blocks_too_expensive_transactions() {
         balances.push((addr.to_account_principal(), 100000000));
     }
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_too_expensive_transactions",
-        2013,
-        2014,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2013, 2014);
     peer_config.initial_balances = balances;
 
     let mut peer = TestPeer::new(peer_config);
@@ -2209,11 +2180,7 @@ fn test_build_anchored_blocks_bad_nonces() {
         balances.push((addr.to_account_principal(), 100000000));
     }
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_too_expensive_transactions",
-        2012,
-        2013,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2012, 2013);
     peer_config.initial_balances = balances;
 
     let mut peer = TestPeer::new(peer_config);
@@ -2757,11 +2724,7 @@ fn test_build_microblock_stream_forks_with_descendants() {
         balances.push((addr.to_account_principal(), initial_balance));
     }
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_microblock_stream_forks_with_descendants",
-        2014,
-        2015,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2014, 2015);
     peer_config.initial_balances = balances;
 
     let mut peer = TestPeer::new(peer_config);
@@ -4263,11 +4226,7 @@ fn test_fee_order_mismatch_nonce_order() {
     )
     .unwrap();
 
-    let mut peer_config = TestPeerConfig::new(
-        "test_build_anchored_blocks_stx_transfers_single",
-        2002,
-        2003,
-    );
+    let mut peer_config = TestPeerConfig::new(function_name!(), 2002, 2003);
     peer_config.initial_balances = vec![(addr.to_account_principal(), 1000000000)];
 
     let mut peer = TestPeer::new(peer_config);

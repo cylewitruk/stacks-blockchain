@@ -19,11 +19,17 @@ use std::convert::TryInto;
 use std::fmt;
 use std::mem::replace;
 
+use serde::Serialize;
+use serde_json::json;
+use stacks_common::consts::CHAIN_ID_TESTNET;
+
+use super::EvalHook;
 use crate::vm::ast;
 use crate::vm::ast::ASTRules;
 use crate::vm::ast::ContractAST;
 use crate::vm::callables::{DefinedFunction, FunctionIdentifier};
 use crate::vm::contracts::Contract;
+use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{
     cost_functions, runtime_cost, ClarityCostFunctionReference, CostErrors, CostTracker,
     ExecutionCost, LimitedCostTracker,
@@ -43,17 +49,9 @@ use crate::vm::types::{
     AssetIdentifier, BuffData, CallableData, OptionalData, PrincipalData,
     QualifiedContractIdentifier, TraitIdentifier, TypeSignature, Value,
 };
+use crate::vm::version::ClarityVersion;
 use crate::vm::{eval, is_reserved};
 use crate::{types::chainstate::StacksBlockId, types::StacksEpochId};
-
-use crate::vm::costs::cost_functions::ClarityCostFunction;
-use crate::vm::version::ClarityVersion;
-
-use stacks_common::consts::CHAIN_ID_TESTNET;
-
-use serde::Serialize;
-
-use super::EvalHook;
 
 pub const MAX_CONTEXT_DEPTH: u16 = 256;
 
@@ -1837,6 +1835,21 @@ impl ContractContext {
     pub fn get_clarity_version(&self) -> &ClarityVersion {
         &self.clarity_version
     }
+
+    /// Canonicalize the types for the specified epoch. Only functions and
+    /// defined traits are exposed externally, so other types are not
+    /// canonicalized.
+    pub fn canonicalize_types(&mut self, epoch: &StacksEpochId) {
+        for (_, function) in self.functions.iter_mut() {
+            function.canonicalize_types(epoch);
+        }
+
+        for trait_def in self.defined_traits.values_mut() {
+            for (_, function) in trait_def.iter_mut() {
+                *function = function.canonicalize(epoch);
+            }
+        }
+    }
 }
 
 impl<'a> LocalContext<'a> {
@@ -1962,6 +1975,13 @@ impl CallStack {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::vm::{
+        callables::DefineType,
+        types::{
+            signatures::CallableSubtype, FixedFunction, FunctionArg, FunctionType,
+            StandardPrincipalData,
+        },
+    };
 
     #[test]
     fn test_asset_map_abort() {
@@ -2113,5 +2133,63 @@ mod test {
 
         assert_eq!(table[&p1][&t7], AssetMapEntry::Burn(30 + 31));
         assert_eq!(table[&p2][&t7], AssetMapEntry::Burn(35 + 36));
+    }
+
+    #[test]
+    fn test_canonicalize_contract_context() {
+        let trait_id = TraitIdentifier::new(
+            StandardPrincipalData::transient(),
+            "my-contract".into(),
+            "my-trait".into(),
+        );
+        let mut contract_context = ContractContext::new(
+            QualifiedContractIdentifier::local("foo").unwrap(),
+            ClarityVersion::Clarity1,
+        );
+        contract_context.functions.insert(
+            "foo".into(),
+            DefinedFunction::new(
+                vec![(
+                    "a".into(),
+                    TypeSignature::TraitReferenceType(trait_id.clone()),
+                )],
+                SymbolicExpression::atom_value(Value::Int(3)),
+                DefineType::Public,
+                &"foo".into(),
+                "testing",
+            ),
+        );
+
+        let mut trait_functions = BTreeMap::new();
+        trait_functions.insert(
+            "alpha".into(),
+            FunctionSignature {
+                args: vec![TypeSignature::TraitReferenceType(trait_id.clone())],
+                returns: TypeSignature::ResponseType(Box::new((
+                    TypeSignature::UIntType,
+                    TypeSignature::UIntType,
+                ))),
+            },
+        );
+        contract_context
+            .defined_traits
+            .insert("bar".into(), trait_functions);
+
+        contract_context.canonicalize_types(&StacksEpochId::Epoch21);
+
+        assert_eq!(
+            contract_context.functions["foo"].get_arg_types()[0],
+            TypeSignature::CallableType(CallableSubtype::Trait(trait_id.clone()))
+        );
+        assert_eq!(
+            contract_context
+                .defined_traits
+                .get("bar")
+                .unwrap()
+                .get("alpha")
+                .unwrap()
+                .args[0],
+            TypeSignature::CallableType(CallableSubtype::Trait(trait_id.clone()))
+        );
     }
 }

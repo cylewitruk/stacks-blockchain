@@ -5,13 +5,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use lazy_static::lazy_static;
 use rand::RngCore;
-
 use stacks::burnchains::bitcoin::BitcoinNetworkType;
 use stacks::burnchains::Burnchain;
 use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
-use stacks::chainstate::stacks::index::marf::MARFOpenOpts;
-use stacks::chainstate::stacks::index::storage::TrieHashCalculationMode;
 use stacks::chainstate::stacks::miner::BlockBuilderSettings;
 use stacks::chainstate::stacks::miner::MinerStatus;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
@@ -32,6 +30,7 @@ use stacks::cost_estimates::FeeEstimator;
 use stacks::cost_estimates::PessimisticEstimator;
 use stacks::net::connection::ConnectionOptions;
 use stacks::net::{Neighbor, NeighborKey, PeerAddress};
+use stacks::types::chainstate::{TrieHashCalculationMode, MARFOpenOpts, TrieCachingStrategy, BlobCompressionType};
 use stacks::util::get_epoch_time_ms;
 use stacks::util::hash::hex_bytes;
 use stacks::util::secp256k1::Secp256k1PrivateKey;
@@ -485,19 +484,6 @@ impl Config {
                 "FATAL: v1 unlock height is at a reward cycle boundary\nburnchain: {:?}",
                 burnchain
             );
-        } else if epoch21_rc == v1_unlock_rc {
-            // if v1_unlock_height and epoch_21 are in the same reward cycle, then epoch_21 must be
-            // instantiated before the prepare phase.  This is because pox-2 must exist in the
-            // PoX anchor block for the subsequent reward cycle.
-            //
-            // Ideally, the epoch_21 start height would be at the very beginning of the reward
-            // cycle, but this is not a hard requirement.  However, it is highly recommended to
-            // de-risk the chance that the anchor block is picked before the block in which pox-2
-            // is instantiated.
-            assert!(!burnchain.is_in_prepare_phase(epoch21.start_height));
-            if !burnchain.is_reward_cycle_start(epoch21.start_height) {
-                warn!("DANGEROUS CONFIG: Epoch 2.1 starts at {}, which is _NOT_ the beginning of the reward cycle.", epoch21.start_height);
-            }
         }
     }
 
@@ -611,28 +597,29 @@ impl Config {
 
     pub fn from_config_file(config_file: ConfigFile) -> Result<Config, String> {
         let default_node_config = NodeConfig::default();
+        let mut has_require_affirmed_anchor_blocks = false;
         let (mut node, bootstrap_node, deny_nodes) = match config_file.node {
-            Some(node) => {
-                let rpc_bind = node.rpc_bind.unwrap_or(default_node_config.rpc_bind);
+            Some(mut node) => {
+                let rpc_bind = node.rpc_bind.as_ref().unwrap_or(&default_node_config.rpc_bind).to_string();
                 let node_config = NodeConfig {
-                    name: node.name.unwrap_or(default_node_config.name),
-                    seed: match node.seed {
+                    name: node.name.as_ref().unwrap_or(&default_node_config.name).to_string(),
+                    seed: match &node.seed {
                         Some(seed) => hex_bytes(&seed)
                             .map_err(|_e| format!("node.seed should be a hex encoded string"))?,
                         None => default_node_config.seed,
                     },
                     working_dir: std::env::var("STACKS_WORKING_DIR")
-                        .unwrap_or(node.working_dir.unwrap_or(default_node_config.working_dir)),
+                        .unwrap_or(node.working_dir.as_ref().unwrap_or(&default_node_config.working_dir).to_string()),
                     rpc_bind: rpc_bind.clone(),
-                    p2p_bind: node.p2p_bind.unwrap_or(default_node_config.p2p_bind),
-                    p2p_address: node.p2p_address.unwrap_or(rpc_bind.clone()),
+                    p2p_bind: node.p2p_bind.as_ref().unwrap_or(&default_node_config.p2p_bind).to_string(),
+                    p2p_address: node.p2p_address.as_ref().unwrap_or(&default_node_config.p2p_address).to_string(),
                     bootstrap_node: vec![],
                     deny_nodes: vec![],
-                    data_url: match node.data_url {
-                        Some(data_url) => data_url,
-                        None => format!("http://{}", rpc_bind),
+                    data_url: match &node.data_url {
+                        Some(data_url) => data_url.to_string(),
+                        None => format!("http://{}", rpc_bind.clone()),
                     },
-                    local_peer_seed: match node.local_peer_seed {
+                    local_peer_seed: match &node.local_peer_seed {
                         Some(seed) => hex_bytes(&seed).map_err(|_e| {
                             format!("node.local_peer_seed should be a hex encoded string")
                         })?,
@@ -655,11 +642,12 @@ impl Config {
                     wait_time_for_blocks: node
                         .wait_time_for_blocks
                         .unwrap_or(default_node_config.wait_time_for_blocks),
-                    prometheus_bind: node.prometheus_bind,
-                    marf_cache_strategy: node.marf_cache_strategy,
+                    prometheus_bind: node.prometheus_bind.take(),
+                    marf_cache_strategy: node.get_marf_caching_strategy(),
                     marf_defer_hashing: node
                         .marf_defer_hashing
                         .unwrap_or(default_node_config.marf_defer_hashing),
+                    marf_compression_type: node.get_marf_compression_type(),
                     pox_sync_sample_secs: node
                         .pox_sync_sample_secs
                         .unwrap_or(default_node_config.pox_sync_sample_secs),
@@ -669,9 +657,16 @@ impl Config {
                         .unwrap_or(default_node_config.always_use_affirmation_maps),
                     // miners should always try to mine, even if they don't have the anchored
                     // blocks in the canonical affirmation map. Followers, however, can stall.
-                    require_affirmed_anchor_blocks: node
-                        .require_affirmed_anchor_blocks
-                        .unwrap_or(!node.miner.unwrap_or(!default_node_config.miner)),
+                    require_affirmed_anchor_blocks: match node.require_affirmed_anchor_blocks {
+                        Some(x) => {
+                            has_require_affirmed_anchor_blocks = true;
+                            x
+                        }
+                        None => {
+                            has_require_affirmed_anchor_blocks = false;
+                            !node.miner.unwrap_or(!default_node_config.miner)
+                        }
+                    },
                     // chainstate fault_injection activation for hide_blocks.
                     // you can't set this in the config file.
                     fault_injection_hide_blocks: false,
@@ -716,6 +711,14 @@ impl Config {
                                 "Attempted to run mainnet node with specified `initial_balances`"
                             ));
                         }
+                    }
+                } else {
+                    // testnet requires that we use the 2.05 rules for anchor block affirmations,
+                    // because reward cycle 360 (and possibly future ones) has a different anchor
+                    // block choice in 2.05 rules than in 2.1 rules.
+                    if !has_require_affirmed_anchor_blocks {
+                        debug!("Set `require_affirmed_anchor_blocks` to `false` for non-mainnet config");
+                        node.require_affirmed_anchor_blocks = false;
                     }
                 }
 
@@ -1443,8 +1446,9 @@ pub struct NodeConfig {
     pub wait_time_for_microblocks: u64,
     pub wait_time_for_blocks: u64,
     pub prometheus_bind: Option<String>,
-    pub marf_cache_strategy: Option<String>,
+    pub marf_cache_strategy: TrieCachingStrategy,
     pub marf_defer_hashing: bool,
+    pub marf_compression_type: BlobCompressionType,
     pub pox_sync_sample_secs: u64,
     pub use_test_genesis_chainstate: Option<bool>,
     pub always_use_affirmation_maps: bool,
@@ -1722,8 +1726,9 @@ impl NodeConfig {
             wait_time_for_microblocks: 30_000,
             wait_time_for_blocks: 30_000,
             prometheus_bind: None,
-            marf_cache_strategy: None,
+            marf_cache_strategy: TrieCachingStrategy::Noop,
             marf_defer_hashing: true,
+            marf_compression_type: BlobCompressionType::None,
             pox_sync_sample_secs: 30,
             use_test_genesis_chainstate: None,
             always_use_affirmation_maps: true,
@@ -1817,11 +1822,9 @@ impl NodeConfig {
 
         MARFOpenOpts::new(
             hash_mode,
-            &self
-                .marf_cache_strategy
-                .as_ref()
-                .unwrap_or(&"noop".to_string()),
+            self.marf_cache_strategy,
             false,
+            self.marf_compression_type
         )
     }
 }
@@ -1926,10 +1929,39 @@ pub struct NodeConfigFile {
     pub prometheus_bind: Option<String>,
     pub marf_cache_strategy: Option<String>,
     pub marf_defer_hashing: Option<bool>,
+    pub marf_compression_type: Option<String>,
     pub pox_sync_sample_secs: Option<u64>,
     pub use_test_genesis_chainstate: Option<bool>,
     pub always_use_affirmation_maps: Option<bool>,
     pub require_affirmed_anchor_blocks: Option<bool>,
+}
+
+impl NodeConfigFile {
+    pub fn get_marf_caching_strategy(&self) -> TrieCachingStrategy {
+        if let Some(caching_strategy) = &self.marf_cache_strategy.as_ref() {
+            match caching_strategy.as_str() {
+                "noop" => TrieCachingStrategy::Noop,
+                "everything" => TrieCachingStrategy::Everything,
+                "node256" => TrieCachingStrategy::Node256,
+                _ => panic!("Invalid marf_cache_strategy provided.  Allowed values: noop, everything, node256.")
+            }
+        } else {
+            TrieCachingStrategy::Noop
+        }
+    }
+
+    pub fn get_marf_compression_type(&self) -> BlobCompressionType {
+        if let Some(compression_type) = &self.marf_compression_type {
+            match compression_type.as_str() {
+                "none" => BlobCompressionType::None,
+                "lz4" => BlobCompressionType::LZ4,
+                "zstd" => BlobCompressionType::ZStd(0),
+                _ => panic!("Invalid marf_compression_type provided.  Allowed values: none, lz4, zstd.")
+            }
+        } else {
+            BlobCompressionType::None
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Debug)]

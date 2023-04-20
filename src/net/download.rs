@@ -37,6 +37,12 @@ use std::sync::mpsc::TrySendError;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rand::RngCore;
+use stacks_common::util::get_epoch_time_ms;
+use stacks_common::util::get_epoch_time_secs;
+use stacks_common::util::hash::to_hex;
+use stacks_common::util::log;
+use stacks_common::util::secp256k1::Secp256k1PrivateKey;
+use stacks_common::util::secp256k1::Secp256k1PublicKey;
 
 use crate::burnchains::Burnchain;
 use crate::burnchains::BurnchainView;
@@ -70,16 +76,9 @@ use crate::net::StacksMessage;
 use crate::net::StacksP2P;
 use crate::net::*;
 use crate::types::chainstate::StacksBlockId;
+use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
 use crate::util_lib::db::DBConn;
 use crate::util_lib::db::Error as db_error;
-use stacks_common::util::get_epoch_time_ms;
-use stacks_common::util::get_epoch_time_secs;
-use stacks_common::util::hash::to_hex;
-use stacks_common::util::log;
-use stacks_common::util::secp256k1::Secp256k1PrivateKey;
-use stacks_common::util::secp256k1::Secp256k1PublicKey;
-
-use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
 
 #[cfg(not(test))]
 pub const BLOCK_DOWNLOAD_INTERVAL: u64 = 180;
@@ -2184,15 +2183,25 @@ impl PeerNetwork {
                 // NOTE: microblock streams are served in reverse order, since they're forks
                 microblock_stream.reverse();
 
-                let block_header = StacksChainState::load_block_header(
+                let block_header = match StacksChainState::load_block_header(
                     &chainstate.blocks_path,
                     &request_key.consensus_hash,
                     &request_key.anchor_block_hash,
-                )?
-                .expect(&format!(
-                    "BUG: missing Stacks block header for {}/{}",
-                    &request_key.consensus_hash, &request_key.anchor_block_hash
-                ));
+                ) {
+                    Ok(Some(hdr)) => hdr,
+                    Ok(None) => {
+                        warn!("Missing Stacks blcok header for {}/{}.  Possibly invalidated due to PoX reorg", &request_key.consensus_hash, &request_key.anchor_block_hash);
+
+                        // don't try again
+                        downloader
+                            .microblocks_to_try
+                            .remove(&request_key.sortition_height);
+                        continue;
+                    }
+                    Err(e) => {
+                        return Err(e.into());
+                    }
+                };
 
                 assert!(
                     request_key.parent_block_header.is_some()
@@ -2578,8 +2587,16 @@ pub mod test {
     use std::collections::HashMap;
     use std::convert::TryFrom;
 
+    use clarity::vm::clarity::ClarityConnection;
+    use clarity::vm::costs::ExecutionCost;
+    use clarity::vm::execute;
+    use clarity::vm::representations::*;
     use rand::Rng;
+    use stacks_common::util::hash::*;
+    use stacks_common::util::sleep_ms;
+    use stacks_common::util::vrf::VRFProof;
 
+    use super::*;
     use crate::burnchains::tests::TestMiner;
     use crate::chainstate::burn::db::sortdb::*;
     use crate::chainstate::burn::operations::*;
@@ -2595,15 +2612,6 @@ pub mod test {
     use crate::stacks_common::types::PublicKey;
     use crate::util_lib::strings::*;
     use crate::util_lib::test::*;
-    use clarity::vm::clarity::ClarityConnection;
-    use clarity::vm::costs::ExecutionCost;
-    use clarity::vm::execute;
-    use clarity::vm::representations::*;
-    use stacks_common::util::hash::*;
-    use stacks_common::util::sleep_ms;
-    use stacks_common::util::vrf::VRFProof;
-
-    use super::*;
 
     fn get_peer_availability(
         peer: &mut TestPeer,

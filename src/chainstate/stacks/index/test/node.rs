@@ -19,6 +19,7 @@
 
 use std::io::Cursor;
 
+use super::*;
 use crate::chainstate::stacks::index::bits::*;
 use crate::chainstate::stacks::index::marf::*;
 use crate::chainstate::stacks::index::node::*;
@@ -28,8 +29,6 @@ use crate::chainstate::stacks::index::test::*;
 use crate::chainstate::stacks::index::trie::*;
 use crate::chainstate::stacks::index::*;
 use stacks_common::types::chainstate::MARFOpenOpts;
-
-use super::*;
 
 #[test]
 fn trieptr_to_bytes() {

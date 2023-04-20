@@ -22,7 +22,21 @@ use std::io::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use clarity::vm::analysis::analysis_db::AnalysisDatabase;
+use clarity::vm::analysis::run_analysis;
 use clarity::vm::ast::ASTRules;
+use clarity::vm::clarity::TransactionConnection;
+use clarity::vm::contexts::OwnedEnvironment;
+use clarity::vm::costs::{ExecutionCost, LimitedCostTracker};
+use clarity::vm::database::{
+    BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, SqliteConnection, NULL_BURN_STATE_DB,
+};
+use clarity::vm::events::*;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::representations::ContractName;
+use clarity::vm::types::TupleData;
+use clarity::vm::Value;
+use lazy_static::lazy_static;
 use rusqlite::types::ToSql;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
@@ -30,6 +44,9 @@ use rusqlite::OptionalExtension;
 use rusqlite::Row;
 use rusqlite::Transaction;
 use rusqlite::NO_PARAMS;
+use stacks_common::types::chainstate::{StacksAddress, StacksBlockId, TrieHash};
+use stacks_common::util;
+use stacks_common::util::hash::to_hex;
 
 use crate::burnchains::bitcoin::address::{BitcoinAddress, LegacyBitcoinAddress};
 use crate::burnchains::{Address, Burnchain, BurnchainParameters, PoxConstants};
@@ -38,6 +55,8 @@ use crate::chainstate::burn::db::sortdb::*;
 use crate::chainstate::burn::db::sortdb::{SortitionDB, SortitionDBConn};
 use crate::chainstate::burn::operations::{DelegateStxOp, StackStxOp, TransferStxOp};
 use crate::chainstate::burn::ConsensusHash;
+use crate::chainstate::burn::ConsensusHashExtensions;
+use crate::chainstate::stacks::address::StacksAddressExtensions;
 use crate::chainstate::stacks::boot::*;
 use crate::chainstate::stacks::db::accounts::*;
 use crate::chainstate::stacks::db::blocks::*;
@@ -48,53 +67,36 @@ use crate::chainstate::stacks::index::marf::{MarfConnection, BLOCK_HASH_TO_HEIGH
 };
 use crate::chainstate::stacks::index::storage::TrieFileStorage;
 use crate::chainstate::stacks::index::MarfTrieId;
+use crate::chainstate::stacks::index::{ClarityMarfTrieId, MARFValue};
 use crate::chainstate::stacks::Error;
+use crate::chainstate::stacks::StacksBlockHeader;
+use crate::chainstate::stacks::StacksMicroblockHeader;
 use crate::chainstate::stacks::*;
 use crate::chainstate::stacks::{
     C32_ADDRESS_VERSION_MAINNET_MULTISIG, C32_ADDRESS_VERSION_MAINNET_SINGLESIG,
     C32_ADDRESS_VERSION_TESTNET_MULTISIG, C32_ADDRESS_VERSION_TESTNET_SINGLESIG,
 };
+use crate::clarity_vm::clarity::PreCommitClarityBlock;
 use crate::clarity_vm::clarity::{
     ClarityBlockConnection, ClarityConnection, ClarityInstance, ClarityReadOnlyConnection,
     Error as clarity_error,
 };
+use crate::clarity_vm::database::marf::MarfedKV;
+use crate::clarity_vm::database::HeadersDBConn;
 use crate::core::*;
 use crate::monitoring;
 use crate::net::atlas::BNS_CHARS_REGEX;
 use crate::net::Error as net_error;
 use crate::net::MemPoolSyncData;
+use crate::util_lib::boot::{boot_code_acc, boot_code_addr, boot_code_id, boot_code_tx_auth};
 use crate::util_lib::db::Error as db_error;
 use crate::util_lib::db::{
     query_count, query_row, tx_begin_immediate, tx_busy_handler, DBConn, DBTx, FromColumn, FromRow,
     IndexDBConn, IndexDBTx,
 };
-use clarity::vm::analysis::analysis_db::AnalysisDatabase;
-use clarity::vm::analysis::run_analysis;
-use clarity::vm::clarity::TransactionConnection;
-use clarity::vm::contexts::OwnedEnvironment;
-use clarity::vm::costs::{ExecutionCost, LimitedCostTracker};
-use clarity::vm::database::{
-    BurnStateDB, ClarityDatabase, HeadersDB, STXBalance, SqliteConnection, NULL_BURN_STATE_DB,
-};
 
-use crate::clarity_vm::clarity::PreCommitClarityBlock;
 use clarity::vm::events::*;
-use clarity::vm::representations::ClarityName;
-use clarity::vm::representations::ContractName;
-use clarity::vm::types::TupleData;
-use stacks_common::util;
-use stacks_common::util::hash::to_hex;
-
-use crate::chainstate::burn::ConsensusHashExtensions;
-use crate::chainstate::stacks::address::StacksAddressExtensions;
-use crate::chainstate::stacks::index::{ClarityMarfTrieId, MARFValue};
-use crate::chainstate::stacks::StacksBlockHeader;
-use crate::chainstate::stacks::StacksMicroblockHeader;
-use crate::clarity_vm::database::marf::MarfedKV;
-use crate::clarity_vm::database::HeadersDBConn;
-use crate::util_lib::boot::{boot_code_acc, boot_code_addr, boot_code_id, boot_code_tx_auth};
-use clarity::vm::Value;
-use stacks_common::types::chainstate::{StacksAddress, StacksBlockId, TrieHash, MARFOpenOpts};
+use stacks_common::types::chainstate::{MARFOpenOpts};
 
 pub mod accounts;
 pub mod blocks;
@@ -838,10 +840,6 @@ const CHAINSTATE_INDEXES: &'static [&'static str] = &[
 ];
 
 pub use stacks_common::consts::MINER_REWARD_MATURITY;
-
-pub const MINER_FEE_MINIMUM_BLOCK_USAGE: u64 = 80; // miner must share the first F% of the anchored block tx fees, and gets 100% - F% exclusively
-
-pub const MINER_FEE_WINDOW: u64 = 24; // number of blocks (B) used to smooth over the fraction of tx fees they share from anchored blocks
 
 // fraction (out of 100) of the coinbase a user will receive for reporting a microblock stream fork
 pub const POISON_MICROBLOCK_COMMISSION_FRACTION: u128 = 5;
@@ -2383,7 +2381,7 @@ impl StacksChainState {
         new_burnchain_timestamp: u64,
         microblock_tail_opt: Option<StacksMicroblockHeader>,
         block_reward: &MinerPaymentSchedule,
-        user_burns: &Vec<StagingUserBurnSupport>,
+        user_burns: &[StagingUserBurnSupport],
         mature_miner_payouts: Option<(MinerReward, Vec<MinerReward>, MinerReward, MinerRewardInfo)>, // (miner, [users], parent, matured rewards)
         anchor_block_cost: &ExecutionCost,
         anchor_block_size: u64,
@@ -2513,14 +2511,13 @@ impl StacksChainState {
 pub mod test {
     use std::{env, fs};
 
-    use crate::chainstate::stacks::db::*;
-    use crate::chainstate::stacks::*;
     use clarity::vm::test_util::TEST_BURN_STATE_DB;
     use stx_genesis::GenesisData;
 
-    use crate::util_lib::boot::boot_code_test_addr;
-
     use super::*;
+    use crate::chainstate::stacks::db::*;
+    use crate::chainstate::stacks::*;
+    use crate::util_lib::boot::boot_code_test_addr;
 
     pub fn instantiate_chainstate(
         mainnet: bool,
@@ -2580,7 +2577,7 @@ pub mod test {
 
     #[test]
     fn test_instantiate_chainstate() {
-        let mut chainstate = instantiate_chainstate(false, 0x80000000, "instantiate-chainstate");
+        let mut chainstate = instantiate_chainstate(false, 0x80000000, function_name!());
 
         // verify that the boot code is there
         let mut conn = chainstate.block_begin(
@@ -2656,7 +2653,7 @@ pub mod test {
             })),
         };
 
-        let path = chainstate_path("genesis-consistency-chainstate-test");
+        let path = chainstate_path(function_name!());
         match fs::metadata(&path) {
             Ok(_) => {
                 fs::remove_dir_all(&path).unwrap();
@@ -2746,7 +2743,7 @@ pub mod test {
             })),
         };
 
-        let path = chainstate_path("genesis-consistency-chainstate");
+        let path = chainstate_path(function_name!());
         match fs::metadata(&path) {
             Ok(_) => {
                 fs::remove_dir_all(&path).unwrap();

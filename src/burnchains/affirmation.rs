@@ -238,6 +238,10 @@ use std::fmt::Write;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 
+use serde::de::Error as de_Error;
+use serde::ser::Error as ser_Error;
+use serde::{Deserialize, Serialize};
+
 use crate::burnchains::{
     db::{BurnchainBlockData, BurnchainDB, BurnchainDBTransaction, BurnchainHeaderReader},
     Address, Burnchain, BurnchainBlockHeader, Error, PoxConstants, Txid,
@@ -250,19 +254,13 @@ use crate::chainstate::burn::{
     BlockSnapshot, ConsensusHash,
 };
 use crate::chainstate::stacks::StacksBlockHeader;
-use crate::util_lib::db::DBConn;
-use crate::util_lib::db::Error as DBError;
-
 use crate::core::StacksEpochId;
-
 use crate::types::chainstate::{
     BlockHeaderHash, BurnchainHeaderHash, PoxId, SortitionId, StacksAddress, StacksBlockId,
 };
 use crate::util_lib::boot::boot_code_id;
-
-use serde::de::Error as de_Error;
-use serde::ser::Error as ser_Error;
-use serde::{Deserialize, Serialize};
+use crate::util_lib::db::DBConn;
+use crate::util_lib::db::Error as DBError;
 
 /// Affirmation map entries.  By building on a PoX-mined block,
 /// a PoB-mined block (in a PoX reward cycle),
@@ -290,7 +288,7 @@ impl AffirmationMapEntry {
 /// list behind accessor and mutator methods.
 #[derive(Clone, PartialEq)]
 pub struct AffirmationMap {
-    affirmations: Vec<AffirmationMapEntry>,
+    pub affirmations: Vec<AffirmationMapEntry>,
 }
 
 impl fmt::Display for AffirmationMapEntry {
@@ -621,7 +619,7 @@ pub fn read_prepare_phase_commits<B: BurnchainHeaderReader>(
 pub fn read_parent_block_commits<B: BurnchainHeaderReader>(
     burnchain_tx: &BurnchainDBTransaction,
     indexer: &B,
-    prepare_phase_ops: &Vec<Vec<LeaderBlockCommitOp>>,
+    prepare_phase_ops: &[Vec<LeaderBlockCommitOp>],
 ) -> Result<Vec<LeaderBlockCommitOp>, Error> {
     let mut parents = HashMap::new();
     for ops in prepare_phase_ops.iter() {
@@ -691,7 +689,7 @@ pub fn read_parent_block_commits<B: BurnchainHeaderReader>(
 /// Given a list of prepare-phase block-commits, and a list of parent commits, filter out and remove
 /// the prepare-phase commits that _don't_ have a parent.
 pub fn filter_orphan_block_commits(
-    parents: &Vec<LeaderBlockCommitOp>,
+    parents: &[LeaderBlockCommitOp],
     prepare_phase_ops: Vec<Vec<LeaderBlockCommitOp>>,
 ) -> Vec<Vec<LeaderBlockCommitOp>> {
     let mut parent_set = HashSet::new();
@@ -773,7 +771,7 @@ pub fn filter_missed_block_commits(
 /// exists at all.
 /// Returns None otherwise
 fn inner_find_heaviest_block_commit_ptr(
-    prepare_phase_ops: &Vec<Vec<LeaderBlockCommitOp>>,
+    prepare_phase_ops: &[Vec<LeaderBlockCommitOp>],
     anchor_threshold: u32,
 ) -> Option<(PoxAnchorPtr, BTreeMap<(u64, u32), (u64, u32)>)> {
     // sanity check -- must be in order by block height and vtxindex

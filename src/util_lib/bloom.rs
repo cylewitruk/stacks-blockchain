@@ -19,28 +19,23 @@ use std::collections::HashMap;
 use std::hash::Hasher;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use stacks_common::util::hash::Sha512Trunc256Sum;
-
-use siphasher::sip::SipHasher; // this is SipHash-2-4
-
-use stacks_common::codec::Error as codec_error;
-use stacks_common::codec::StacksMessageCodec;
-use stacks_common::codec::{read_next, write_next};
-
-use crate::util_lib::db::query_expect_row;
-use crate::util_lib::db::Error as db_error;
-use crate::util_lib::db::{DBConn, DBTx};
-
-use stacks_common::util::hash::to_hex;
-
+use rand::prelude::*;
+use rand::thread_rng;
 use rusqlite::blob::Blob;
 use rusqlite::Error as sqlite_error;
 use rusqlite::Row;
 use rusqlite::ToSql;
 use rusqlite::NO_PARAMS;
+use siphasher::sip::SipHasher; // this is SipHash-2-4
+use stacks_common::codec::Error as codec_error;
+use stacks_common::codec::StacksMessageCodec;
+use stacks_common::codec::{read_next, write_next};
+use stacks_common::util::hash::to_hex;
+use stacks_common::util::hash::Sha512Trunc256Sum;
 
-use rand::prelude::*;
-use rand::thread_rng;
+use crate::util_lib::db::query_expect_row;
+use crate::util_lib::db::Error as db_error;
+use crate::util_lib::db::{DBConn, DBTx};
 
 /// A field of bits of known length!
 #[derive(Debug, Clone, PartialEq)]
@@ -607,15 +602,13 @@ impl BloomHash for BloomNodeHasher {
 
 #[cfg(test)]
 pub mod test {
-    use super::*;
-
     use std::fs;
 
     use rand::prelude::*;
     use rand::thread_rng;
-
     use rusqlite::OpenFlags;
 
+    use super::*;
     use crate::util_lib::db::{sql_pragma, tx_begin_immediate, tx_busy_handler, DBConn, DBTx};
 
     pub fn setup_bloom_counter(db_name: &str) -> DBConn {
@@ -680,7 +673,7 @@ pub mod test {
         let num_items = 8192;
         let err_rate = 0.001;
 
-        let mut db = setup_bloom_counter("has_all_inserted_items_with_error_rate");
+        let mut db = setup_bloom_counter(function_name!());
         let hasher = BloomNodeHasher::new(&[0u8; 32]);
 
         let bf = {
@@ -720,7 +713,7 @@ pub mod test {
         let num_items = 8192;
         let err_rate = 0.001;
 
-        let mut db = setup_bloom_counter("counter_is_invertible");
+        let mut db = setup_bloom_counter(function_name!());
 
         let hasher = BloomNodeHasher::new(&[0u8; 32]);
 
@@ -787,7 +780,7 @@ pub mod test {
         let num_items = 8192;
         let err_rate = 0.001;
 
-        let mut db = setup_bloom_counter("counter_is_invertible_over_iterations");
+        let mut db = setup_bloom_counter(function_name!());
 
         let hasher = BloomNodeHasher::new(&[0u8; 32]);
 
@@ -980,7 +973,7 @@ pub mod test {
         let num_items = 8192;
         let err_rate = 0.001;
 
-        let mut db = setup_bloom_counter("has_all_inserted_items_with_error_rate");
+        let mut db = setup_bloom_counter(function_name!());
 
         let hasher = BloomNodeHasher::new(&[0u8; 32]);
 

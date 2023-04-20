@@ -14,8 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::HashMap;
+
 use stacks_common::types::StacksEpochId;
 
+pub use super::errors::{
+    check_argument_count, check_arguments_at_least, CheckError, CheckErrors, CheckResult,
+};
+use super::AnalysisDatabase;
 use crate::vm::analysis::types::{AnalysisPass, ContractAnalysis};
 use crate::vm::functions::define::DefineFunctionsParsed;
 use crate::vm::functions::tuples;
@@ -27,16 +33,8 @@ use crate::vm::representations::{ClarityName, SymbolicExpression, SymbolicExpres
 use crate::vm::types::{
     parse_name_type_pairs, PrincipalData, TupleTypeSignature, TypeSignature, Value,
 };
-
 use crate::vm::variables::NativeVariables;
-use std::collections::HashMap;
-
 use crate::vm::ClarityVersion;
-
-pub use super::errors::{
-    check_argument_count, check_arguments_at_least, CheckError, CheckErrors, CheckResult,
-};
-use super::AnalysisDatabase;
 
 #[cfg(test)]
 mod tests;
@@ -50,26 +48,33 @@ mod tests;
 pub struct ReadOnlyChecker<'a, 'b> {
     db: &'a mut AnalysisDatabase<'b>,
     defined_functions: HashMap<ClarityName, bool>,
+    epoch: StacksEpochId,
     clarity_version: ClarityVersion,
 }
 
 impl<'a, 'b> AnalysisPass for ReadOnlyChecker<'a, 'b> {
     fn run_pass(
-        _epoch: &StacksEpochId,
+        epoch: &StacksEpochId,
         contract_analysis: &mut ContractAnalysis,
         analysis_db: &mut AnalysisDatabase,
     ) -> CheckResult<()> {
-        let mut command = ReadOnlyChecker::new(analysis_db, &contract_analysis.clarity_version);
+        let mut command =
+            ReadOnlyChecker::new(analysis_db, epoch, &contract_analysis.clarity_version);
         command.run(contract_analysis)?;
         Ok(())
     }
 }
 
 impl<'a, 'b> ReadOnlyChecker<'a, 'b> {
-    fn new(db: &'a mut AnalysisDatabase<'b>, version: &ClarityVersion) -> ReadOnlyChecker<'a, 'b> {
+    fn new(
+        db: &'a mut AnalysisDatabase<'b>,
+        epoch: &StacksEpochId,
+        version: &ClarityVersion,
+    ) -> ReadOnlyChecker<'a, 'b> {
         Self {
             db,
             defined_functions: HashMap::new(),
+            epoch: epoch.clone(),
             clarity_version: version.clone(),
         }
     }
@@ -389,7 +394,11 @@ impl<'a, 'b> ReadOnlyChecker<'a, 'b> {
                         PrincipalData::Contract(ref contract_identifier),
                     )) => self
                         .db
-                        .get_read_only_function_type(&contract_identifier, function_name)?
+                        .get_read_only_function_type(
+                            &contract_identifier,
+                            function_name,
+                            &self.epoch,
+                        )?
                         .is_some(),
                     SymbolicExpressionType::Atom(_trait_reference) => {
                         // Dynamic dispatch from a readonly-function can only be guaranteed at runtime,

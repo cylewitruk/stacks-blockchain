@@ -33,6 +33,11 @@ use std::net::SocketAddr;
 use std::ops::Deref;
 use std::str::FromStr;
 
+use clarity::vm::types::TraitIdentifier;
+use clarity::vm::{
+    analysis::contract_interface_builder::ContractInterface, types::PrincipalData, ClarityName,
+    ContractName, Value,
+};
 use rand::thread_rng;
 use rand::RngCore;
 use regex::Regex;
@@ -41,36 +46,6 @@ use serde::de::Error as de_Error;
 use serde::ser::Error as ser_Error;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use url;
-
-use crate::burnchains::affirmation::AffirmationMap;
-use crate::burnchains::Error as burnchain_error;
-use crate::burnchains::Txid;
-use crate::chainstate::burn::ConsensusHash;
-use crate::chainstate::coordinator::Error as coordinator_error;
-use crate::chainstate::stacks::db::blocks::MemPoolRejection;
-use crate::chainstate::stacks::index::Error as marf_error;
-use crate::chainstate::stacks::Error as chainstate_error;
-use crate::chainstate::stacks::{
-    Error as chain_error, StacksBlock, StacksMicroblock, StacksPublicKey, StacksTransaction,
-    TransactionPayload,
-};
-use crate::clarity_vm::clarity::Error as clarity_error;
-use crate::core::mempool::*;
-use crate::core::POX_REWARD_CYCLE_LENGTH;
-use crate::net::atlas::{Attachment, AttachmentInstance};
-use crate::net::http::HttpReservedHeader;
-pub use crate::net::http::StacksBlockAcceptedData;
-use crate::util_lib::bloom::{BloomFilter, BloomNodeHasher};
-use crate::util_lib::boot::boot_code_tx_auth;
-use crate::util_lib::db::DBConn;
-use crate::util_lib::db::Error as db_error;
-use crate::util_lib::strings::UrlString;
-use clarity::vm::types::TraitIdentifier;
-use clarity::vm::{
-    analysis::contract_interface_builder::ContractInterface, types::PrincipalData, ClarityName,
-    ContractName, Value,
-};
 use stacks_common::codec::Error as codec_error;
 use stacks_common::codec::StacksMessageCodec;
 use stacks_common::codec::{read_next, write_next};
@@ -83,22 +58,46 @@ use stacks_common::util::log;
 use stacks_common::util::secp256k1::MessageSignature;
 use stacks_common::util::secp256k1::Secp256k1PublicKey;
 use stacks_common::util::secp256k1::MESSAGE_SIGNATURE_ENCODED_SIZE;
+use url;
 
+use self::dns::*;
+pub use self::http::StacksHttp;
+use crate::burnchains::affirmation::AffirmationMap;
+use crate::burnchains::Error as burnchain_error;
+use crate::burnchains::Txid;
+use crate::chainstate::burn::operations::PegInOp;
+use crate::chainstate::burn::operations::PegOutFulfillOp;
+use crate::chainstate::burn::operations::PegOutRequestOp;
+use crate::chainstate::burn::{ConsensusHash, Opcodes};
+use crate::chainstate::coordinator::Error as coordinator_error;
+use crate::chainstate::stacks::db::blocks::MemPoolRejection;
+use crate::chainstate::stacks::index::Error as marf_error;
+use crate::chainstate::stacks::Error as chainstate_error;
 use crate::chainstate::stacks::StacksBlockHeader;
-
+use crate::chainstate::stacks::{
+    Error as chain_error, StacksBlock, StacksMicroblock, StacksPublicKey, StacksTransaction,
+    TransactionPayload,
+};
+use crate::clarity_vm::clarity::Error as clarity_error;
 use crate::codec::BURNCHAIN_HEADER_HASH_ENCODED_SIZE;
+use crate::core::mempool::*;
+use crate::core::StacksEpoch;
+use crate::core::POX_REWARD_CYCLE_LENGTH;
 use crate::cost_estimates::FeeRateEstimate;
+use crate::net::atlas::{Attachment, AttachmentInstance};
+use crate::net::http::HttpReservedHeader;
+pub use crate::net::http::StacksBlockAcceptedData;
 use crate::types::chainstate::BlockHeaderHash;
 use crate::types::chainstate::PoxId;
 use crate::types::chainstate::{BurnchainHeaderHash, StacksAddress, StacksBlockId};
 use crate::types::StacksPublicKeyBuffer;
 use crate::util::hash::Sha256Sum;
+use crate::util_lib::bloom::{BloomFilter, BloomNodeHasher};
+use crate::util_lib::boot::boot_code_tx_auth;
+use crate::util_lib::db::DBConn;
+use crate::util_lib::db::Error as db_error;
+use crate::util_lib::strings::UrlString;
 use crate::vm::costs::ExecutionCost;
-
-use self::dns::*;
-pub use self::http::StacksHttp;
-
-use crate::core::StacksEpoch;
 
 /// Implements `ASEntry4` object, which is used in db.rs to store the AS number of an IP address.
 pub mod asn;
@@ -1527,6 +1526,11 @@ pub enum HttpRequestType {
         TipRequest,
     ),
     MemPoolQuery(HttpRequestMetadata, MemPoolSyncData, Option<Txid>),
+    GetBurnOps {
+        md: HttpRequestMetadata,
+        height: u64,
+        opcode: Opcodes,
+    },
     /// catch-all for any errors we should surface from parsing
     ClientError(HttpRequestMetadata, ClientError),
 }
@@ -1653,6 +1657,7 @@ pub enum HttpResponseType {
     NotFound(HttpResponseMetadata, String),
     ServerError(HttpResponseMetadata, String),
     ServiceUnavailable(HttpResponseMetadata, String),
+    GetBurnchainOps(HttpResponseMetadata, BurnchainOps),
     Error(HttpResponseMetadata, u16, String),
 }
 
@@ -1686,6 +1691,18 @@ pub enum StacksMessageID {
     NatPunchReply = 18,
     // reserved
     Reserved = 255,
+}
+
+/// This enum wraps Vecs of a single kind of `BlockstackOperationType`.
+/// This allows `handle_get_burn_ops` to use an enum for the different operation
+///  types without having to buffer and re-structure a `Vec<BlockstackOperationType>`
+///  from a, e.g., `Vec<PegInOp>`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum BurnchainOps {
+    PegIn(Vec<PegInOp>),
+    PegOutRequest(Vec<PegOutRequestOp>),
+    PegOutFulfill(Vec<PegOutFulfillOp>),
 }
 
 /// Message type for all P2P Stacks network messages
@@ -2107,17 +2124,34 @@ pub mod test {
     use std::{collections::HashMap, sync::Mutex};
 
     use clarity::vm::ast::ASTRules;
+    use clarity::vm::costs::ExecutionCost;
+    use clarity::vm::database::STXBalance;
+    use clarity::vm::types::*;
+    use clarity::vm::ClarityVersion;
     use mio;
     use rand;
     use rand::RngCore;
+    use stacks_common::address::*;
+    use stacks_common::codec::StacksMessageCodec;
+    use stacks_common::deps_common::bitcoin::network::serialize::BitcoinHash;
+    use stacks_common::types::chainstate::TrieHash;
+    use stacks_common::types::StacksEpochId;
+    use stacks_common::util::get_epoch_time_secs;
+    use stacks_common::util::hash::*;
+    use stacks_common::util::secp256k1::*;
+    use stacks_common::util::uint::*;
+    use stacks_common::util::vrf::*;
 
+    use super::*;
     use crate::address::*;
     use crate::burnchains::bitcoin::address::*;
     use crate::burnchains::bitcoin::indexer::BitcoinIndexer;
     use crate::burnchains::bitcoin::keys::*;
+    use crate::burnchains::bitcoin::spv::BITCOIN_GENESIS_BLOCK_HASH_REGTEST;
     use crate::burnchains::bitcoin::*;
     use crate::burnchains::burnchain::*;
     use crate::burnchains::db::BurnchainDB;
+    use crate::burnchains::db::BurnchainHeaderReader;
     use crate::burnchains::tests::*;
     use crate::burnchains::*;
     use crate::chainstate::burn::db::sortdb;
@@ -2127,14 +2161,18 @@ pub mod test {
     use crate::chainstate::coordinator::tests::*;
     use crate::chainstate::coordinator::*;
     use crate::chainstate::stacks::address::PoxAddress;
+    use crate::chainstate::stacks::boot::test::get_parent_tip;
     use crate::chainstate::stacks::boot::*;
     use crate::chainstate::stacks::db::StacksChainState;
     use crate::chainstate::stacks::db::*;
     use crate::chainstate::stacks::miner::*;
     use crate::chainstate::stacks::tests::chain_histories::mine_smart_contract_block_contract_call_microblock;
     use crate::chainstate::stacks::tests::*;
+    use crate::chainstate::stacks::StacksMicroblockHeader;
     use crate::chainstate::stacks::*;
+    use crate::chainstate::stacks::{db::accounts::MinerReward, events::StacksTransactionReceipt};
     use crate::chainstate::*;
+    use crate::core::StacksEpochExtension;
     use crate::core::NETWORK_P2P_PORT;
     use crate::net::asn::*;
     use crate::net::atlas::*;
@@ -2148,33 +2186,8 @@ pub mod test {
     use crate::net::relay::*;
     use crate::net::rpc::RPCHandlerArgs;
     use crate::net::Error as net_error;
-    use crate::util_lib::strings::*;
-    use clarity::vm::costs::ExecutionCost;
-    use clarity::vm::database::STXBalance;
-    use clarity::vm::types::*;
-    use clarity::vm::ClarityVersion;
-    use stacks_common::address::*;
-    use stacks_common::util::get_epoch_time_secs;
-    use stacks_common::util::hash::*;
-    use stacks_common::util::secp256k1::*;
-    use stacks_common::util::uint::*;
-    use stacks_common::util::vrf::*;
-
-    use stacks_common::deps_common::bitcoin::network::serialize::BitcoinHash;
-
-    use super::*;
-    use crate::chainstate::stacks::boot::test::get_parent_tip;
-    use crate::chainstate::stacks::StacksMicroblockHeader;
-    use crate::chainstate::stacks::{db::accounts::MinerReward, events::StacksTransactionReceipt};
-    use crate::core::StacksEpochExtension;
     use crate::util_lib::boot::boot_code_test_addr;
-    use stacks_common::codec::StacksMessageCodec;
-    use stacks_common::types::chainstate::TrieHash;
-    use stacks_common::types::StacksEpochId;
-
-    use crate::burnchains::bitcoin::spv::BITCOIN_GENESIS_BLOCK_HASH_REGTEST;
-
-    use crate::burnchains::db::BurnchainHeaderReader;
+    use crate::util_lib::strings::*;
 
     impl StacksMessageCodec for BlockstackOperationType {
         fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
@@ -2185,7 +2198,10 @@ pub mod test {
                 BlockstackOperationType::TransferStx(_)
                 | BlockstackOperationType::DelegateStx(_)
                 | BlockstackOperationType::PreStx(_)
-                | BlockstackOperationType::StackStx(_) => Ok(()),
+                | BlockstackOperationType::StackStx(_)
+                | BlockstackOperationType::PegIn(_)
+                | BlockstackOperationType::PegOutRequest(_)
+                | BlockstackOperationType::PegOutFulfill(_) => Ok(()),
             }
         }
 
@@ -2401,10 +2417,10 @@ pub mod test {
             &self,
             block: &StacksBlock,
             metadata: &StacksHeaderInfo,
-            receipts: &Vec<events::StacksTransactionReceipt>,
+            receipts: &[events::StacksTransactionReceipt],
             parent: &StacksBlockId,
             winner_txid: Txid,
-            matured_rewards: &Vec<accounts::MinerReward>,
+            matured_rewards: &[accounts::MinerReward],
             matured_rewards_info: Option<&MinerRewardInfo>,
             parent_burn_block_hash: BurnchainHeaderHash,
             parent_burn_block_height: u32,
@@ -2416,10 +2432,10 @@ pub mod test {
             self.blocks.lock().unwrap().push(TestEventObserverBlock {
                 block: block.clone(),
                 metadata: metadata.clone(),
-                receipts: receipts.clone(),
+                receipts: receipts.to_owned(),
                 parent: parent.clone(),
                 winner_txid,
-                matured_rewards: matured_rewards.clone(),
+                matured_rewards: matured_rewards.to_owned(),
                 matured_rewards_info: matured_rewards_info.map(|info| info.clone()),
             })
         }
@@ -2604,7 +2620,15 @@ pub mod test {
         pub relayer: Relayer,
         pub mempool: Option<MemPoolDB>,
         pub chainstate_path: String,
-        pub coord: ChainsCoordinator<'a, TestEventObserver, (), OnChainRewardSetProvider, (), ()>,
+        pub coord: ChainsCoordinator<
+            'a,
+            TestEventObserver,
+            (),
+            OnChainRewardSetProvider,
+            (),
+            (),
+            BitcoinIndexer,
+        >,
     }
 
     impl<'a> TestPeer<'a> {
@@ -2782,6 +2806,7 @@ pub mod test {
 
             let (tx, _) = sync_channel(100000);
 
+            let indexer = BitcoinIndexer::new_unit_test(&config.burnchain.working_dir);
             let mut coord = ChainsCoordinator::test_new_with_observer(
                 &config.burnchain,
                 config.network_id,
@@ -2789,6 +2814,7 @@ pub mod test {
                 OnChainRewardSetProvider(),
                 tx,
                 observer,
+                indexer,
             );
             coord.handle_new_burnchain_block().unwrap();
 
@@ -2946,8 +2972,10 @@ pub mod test {
                 stacks_tip_height,
                 burn_tip_height,
             );
+            let indexer = BitcoinIndexer::new_unit_test(&self.config.burnchain.working_dir);
 
             let ret = self.network.run(
+                &indexer,
                 &mut sortdb,
                 &mut stacks_node.chainstate,
                 &mut mempool,
@@ -2970,6 +2998,7 @@ pub mod test {
             let mut sortdb = self.sortdb.take().unwrap();
             let mut stacks_node = self.stacks_node.take().unwrap();
             let mut mempool = self.mempool.take().unwrap();
+            let indexer = BitcoinIndexer::new_unit_test(&self.config.burnchain.working_dir);
 
             let burn_tip_height = SortitionDB::get_canonical_burn_chain_tip(sortdb.conn())
                 .unwrap()
@@ -2985,8 +3014,10 @@ pub mod test {
                 stacks_tip_height,
                 burn_tip_height,
             );
+            let indexer = BitcoinIndexer::new_unit_test(&self.config.burnchain.working_dir);
 
             let ret = self.network.run(
+                &indexer,
                 &mut sortdb,
                 &mut stacks_node.chainstate,
                 &mut mempool,

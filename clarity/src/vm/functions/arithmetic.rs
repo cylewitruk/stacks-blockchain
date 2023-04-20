@@ -14,19 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::vm::costs::cost_functions::ClarityCostFunction;
-use crate::vm::errors::{check_argument_count, CheckErrors, InterpreterResult, RuntimeErrorType};
-use crate::vm::types::{
-    ASCIIData, BuffData, CharType, SequenceData, TypeSignature, UTF8Data, Value,
-};
 use std::cmp;
 use std::convert::TryFrom;
 
-use crate::vm::costs::runtime_cost;
 use integer_sqrt::IntegerSquareRoot;
 
+use crate::vm::costs::cost_functions::ClarityCostFunction;
+use crate::vm::costs::runtime_cost;
+use crate::vm::errors::{check_argument_count, CheckErrors, InterpreterResult, RuntimeErrorType};
 use crate::vm::representations::{SymbolicExpression, SymbolicExpressionType};
 use crate::vm::types::{signatures::ListTypeData, ListData, TypeSignature::BoolType};
+use crate::vm::types::{
+    ASCIIData, BuffData, CharType, SequenceData, TypeSignature, UTF8Data, Value,
+};
 use crate::vm::version::ClarityVersion;
 use crate::vm::{apply, eval, lookup_function, CallableType, Environment, LocalContext};
 
@@ -389,9 +389,9 @@ fn special_geq_v1(
     context: &LocalContext,
 ) -> InterpreterResult<Value> {
     check_argument_count(2, args)?;
-    runtime_cost(ClarityCostFunction::Geq, env, 0)?;
     let a = eval(&args[0], env, context)?;
     let b = eval(&args[1], env, context)?;
+    runtime_cost(ClarityCostFunction::Geq, env, args.len())?;
     type_force_binary_comparison_v1!(geq, a, b)
 }
 
@@ -432,9 +432,9 @@ fn special_leq_v1(
     context: &LocalContext,
 ) -> InterpreterResult<Value> {
     check_argument_count(2, args)?;
-    runtime_cost(ClarityCostFunction::Leq, env, 0)?;
     let a = eval(&args[0], env, context)?;
     let b = eval(&args[1], env, context)?;
+    runtime_cost(ClarityCostFunction::Leq, env, args.len())?;
     type_force_binary_comparison_v1!(leq, a, b)
 }
 
@@ -474,9 +474,9 @@ fn special_greater_v1(
     context: &LocalContext,
 ) -> InterpreterResult<Value> {
     check_argument_count(2, args)?;
-    runtime_cost(ClarityCostFunction::Ge, env, 0)?;
     let a = eval(&args[0], env, context)?;
     let b = eval(&args[1], env, context)?;
+    runtime_cost(ClarityCostFunction::Ge, env, args.len())?;
     type_force_binary_comparison_v1!(greater, a, b)
 }
 
@@ -516,9 +516,9 @@ fn special_less_v1(
     context: &LocalContext,
 ) -> InterpreterResult<Value> {
     check_argument_count(2, args)?;
-    runtime_cost(ClarityCostFunction::Le, env, 0)?;
     let a = eval(&args[0], env, context)?;
     let b = eval(&args[1], env, context)?;
+    runtime_cost(ClarityCostFunction::Le, env, args.len())?;
     type_force_binary_comparison_v1!(less, a, b)
 }
 

@@ -14,19 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::burnchains::Burnchain;
-use crate::burnchains::Error as burnchain_error;
-use crate::chainstate::burn::ConsensusHash;
-use clarity::vm::costs::ExecutionCost;
-use stacks_common::util::log;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 
-pub use self::mempool::MemPoolDB;
-use crate::types::chainstate::StacksBlockId;
-use crate::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash};
+use clarity::vm::costs::ExecutionCost;
+use lazy_static::lazy_static;
 use stacks_common::types::StacksEpoch as GenericStacksEpoch;
 pub use stacks_common::types::StacksEpochId;
+use stacks_common::util::log;
+
+pub use self::mempool::MemPoolDB;
+use crate::burnchains::Burnchain;
+use crate::burnchains::Error as burnchain_error;
+use crate::chainstate::burn::ConsensusHash;
+use crate::types::chainstate::StacksBlockId;
+use crate::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash};
 pub mod mempool;
 
 #[cfg(test)]
@@ -251,7 +253,7 @@ lazy_static! {
             epoch_id: StacksEpochId::Epoch21,
             start_height: BITCOIN_MAINNET_STACKS_21_BURN_HEIGHT,
             end_height: STACKS_EPOCH_MAX,
-            block_limit: BLOCK_LIMIT_MAINNET_205.clone(),
+            block_limit: BLOCK_LIMIT_MAINNET_21.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_1
         },
     ];

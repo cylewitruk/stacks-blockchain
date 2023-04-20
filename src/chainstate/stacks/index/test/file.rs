@@ -14,16 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::fs;
+
+use rusqlite::Connection;
+use rusqlite::OpenFlags;
+
+use super::*;
+use crate::chainstate::stacks::index::cache::test::make_test_insert_data;
 use crate::chainstate::stacks::index::cache::*;
 use crate::chainstate::stacks::index::file::*;
 use crate::chainstate::stacks::index::marf::*;
 use crate::chainstate::stacks::index::storage::*;
 use crate::chainstate::stacks::index::*;
-use crate::chainstate::stacks::index::test::cache::make_test_insert_data;
 use crate::util_lib::db::*;
-use rusqlite::Connection;
-use rusqlite::OpenFlags;
-use std::fs;
 use stacks_common::types::chainstate::{MARFOpenOpts, BlobCompressionType, TrieHashCalculationMode, TrieCachingStrategy};
 
 use super::*;
@@ -231,7 +234,7 @@ fn test_migrate_existing_trie_blobs(external_blobs: bool, source_compression_typ
 
         // make data to insert
         info!("Preparing test data and filling MARF...");
-        let data = make_test_insert_data(256, 1024);
+        let data = make_test_insert_data(256, 256);
         let mut last_block_header = BlockHeaderHash::sentinel();
 
         for (i, block_data) in data.iter().enumerate() {

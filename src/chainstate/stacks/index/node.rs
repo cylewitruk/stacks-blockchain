@@ -24,23 +24,22 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 use sha2::Digest;
+use stacks_common::types::chainstate::BlockHeaderHash;
+use stacks_common::types::chainstate::BLOCK_HEADER_HASH_ENCODED_SIZE;
+use stacks_common::types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE};
+use stacks_common::util::hash::to_hex;
+use stacks_common::util::slice_partialeq;
 
 use crate::chainstate::stacks::index::bits::{
     get_path_byte_len, get_ptrs_byte_len, path_from_bytes, ptrs_from_bytes, write_path_to_bytes,
 };
 use crate::chainstate::stacks::index::Error;
-use crate::chainstate::stacks::index::{BlockMap, MarfTrieId, TrieHasher};
-use stacks_common::util::hash::to_hex;
-use stacks_common::util::slice_partialeq;
-
 use crate::chainstate::stacks::index::TrieHashExtension;
+use crate::chainstate::stacks::index::{BlockMap, MarfTrieId, TrieHasher};
 use crate::chainstate::stacks::index::{
     ClarityMarfTrieId, MARFValue, TrieLeaf, MARF_VALUE_ENCODED_SIZE,
 };
 use crate::codec::{read_next, Error as codec_error, StacksMessageCodec};
-use stacks_common::types::chainstate::BlockHeaderHash;
-use stacks_common::types::chainstate::BLOCK_HEADER_HASH_ENCODED_SIZE;
-use stacks_common::types::chainstate::{TrieHash, TRIEHASH_ENCODED_SIZE};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CursorError {
@@ -607,19 +606,19 @@ impl PartialEq for TrieLeaf {
 }
 
 impl TrieLeaf {
-    pub fn new(path: &Vec<u8>, data: &Vec<u8>) -> TrieLeaf {
+    pub fn new(path: &[u8], data: &Vec<u8>) -> TrieLeaf {
         assert!(data.len() <= 40);
         let mut bytes = [0u8; 40];
         bytes.copy_from_slice(&data[..]);
         TrieLeaf {
-            path: path.clone(),
+            path: path.to_owned(),
             data: MARFValue(bytes),
         }
     }
 
-    pub fn from_value(path: &Vec<u8>, value: MARFValue) -> TrieLeaf {
+    pub fn from_value(path: &[u8], value: MARFValue) -> TrieLeaf {
         TrieLeaf {
-            path: path.clone(),
+            path: path.to_owned(),
             data: value,
         }
     }
@@ -669,9 +668,9 @@ impl fmt::Debug for TrieNode4 {
 }
 
 impl TrieNode4 {
-    pub fn new(path: &Vec<u8>) -> TrieNode4 {
+    pub fn new(path: &[u8]) -> TrieNode4 {
         TrieNode4 {
-            path: path.clone(),
+            path: path.to_owned(),
             ptrs: [TriePtr::default(); 4],
         }
     }
@@ -696,9 +695,9 @@ impl fmt::Debug for TrieNode16 {
 }
 
 impl TrieNode16 {
-    pub fn new(path: &Vec<u8>) -> TrieNode16 {
+    pub fn new(path: &[u8]) -> TrieNode16 {
         TrieNode16 {
-            path: path.clone(),
+            path: path.to_owned(),
             ptrs: [TriePtr::default(); 16],
         }
     }
@@ -744,9 +743,9 @@ impl PartialEq for TrieNode48 {
 }
 
 impl TrieNode48 {
-    pub fn new(path: &Vec<u8>) -> TrieNode48 {
+    pub fn new(path: &[u8]) -> TrieNode48 {
         TrieNode48 {
-            path: path.clone(),
+            path: path.to_owned(),
             indexes: [-1; 256],
             ptrs: [TriePtr::default(); 48],
         }
@@ -793,9 +792,9 @@ impl PartialEq for TrieNode256 {
 }
 
 impl TrieNode256 {
-    pub fn new(path: &Vec<u8>) -> TrieNode256 {
+    pub fn new(path: &[u8]) -> TrieNode256 {
         TrieNode256 {
-            path: path.clone(),
+            path: path.to_owned(),
             ptrs: [TriePtr::default(); 256],
         }
     }

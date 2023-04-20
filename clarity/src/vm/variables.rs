@@ -16,13 +16,12 @@
 use std::convert::TryFrom;
 
 use crate::vm::contexts::{Environment, LocalContext};
+use crate::vm::costs::cost_functions::ClarityCostFunction;
+use crate::vm::costs::runtime_cost;
 use crate::vm::errors::{InterpreterResult as Result, RuntimeErrorType};
 use crate::vm::types::BuffData;
 use crate::vm::types::Value;
 use crate::vm::ClarityVersion;
-
-use crate::vm::costs::cost_functions::ClarityCostFunction;
-use crate::vm::costs::runtime_cost;
 
 define_versioned_named_enum!(NativeVariables(ClarityVersion) {
     ContractCaller("contract-caller", ClarityVersion::Clarity1),
@@ -63,7 +62,9 @@ pub fn lookup_reserved_variable(
     _context: &LocalContext,
     env: &mut Environment,
 ) -> Result<Option<Value>> {
-    if let Some(variable) = NativeVariables::lookup_by_name(name) {
+    if let Some(variable) =
+        NativeVariables::lookup_by_name_at_version(name, env.contract_context.get_clarity_version())
+    {
         match variable {
             NativeVariables::TxSender => {
                 let sender = env

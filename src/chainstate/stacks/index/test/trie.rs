@@ -19,6 +19,7 @@
 
 use std::io::Cursor;
 
+use super::*;
 use crate::chainstate::stacks::index::bits::*;
 use crate::chainstate::stacks::index::marf::*;
 use crate::chainstate::stacks::index::node::*;
@@ -32,8 +33,6 @@ use crate::chainstate::stacks::index::*;
 use stacks_common::types::chainstate::*;
 use stacks_proc_macros::generate_test_cases_for_marf_open_opts;
 use test_case::test_case;
-
-use super::*;
 
 fn walk_to_insertion_point(
     f: &mut TrieStorageConnection<BlockHeaderHash>,

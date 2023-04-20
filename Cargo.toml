@@ -33,6 +33,10 @@ path = "src/clarity_cli_main.rs"
 name = "blockstack-cli"
 path = "src/blockstack_cli.rs"
 
+[[bin]]
+name = "relay-server"
+path = "contrib/tools/relay-server/src/main.rs"
+
 [[bench]]
 name = "marf_bench"
 harness = false
@@ -93,7 +97,7 @@ version = "0.12.1"
 features = ["zdict_builder"]
 
 [dependencies.secp256k1]
-version = "0.21.0"
+version = "0.24.2"
 features = ["serde", "recovery"]
 
 [dependencies.rusqlite]

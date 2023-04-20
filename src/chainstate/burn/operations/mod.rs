@@ -21,6 +21,15 @@ use std::fmt;
 use std::fs;
 use std::io;
 
+use clarity::vm::types::PrincipalData;
+use serde::Deserialize;
+use serde_json::json;
+use stacks_common::types::chainstate::StacksBlockId;
+use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::hash::{hex_bytes, to_hex, Hash160};
+use stacks_common::util::secp256k1::MessageSignature;
+use stacks_common::util::vrf::VRFPublicKey;
+
 use crate::burnchains::Burnchain;
 use crate::burnchains::BurnchainBlockHeader;
 use crate::burnchains::Error as BurnchainError;
@@ -31,31 +40,31 @@ use crate::chainstate::burn::db::sortdb::SortitionHandleTx;
 use crate::chainstate::burn::operations::leader_block_commit::{
     MissedBlockCommit, BURN_BLOCK_MINED_AT_MODULUS,
 };
-use crate::types::chainstate::BlockHeaderHash;
-use crate::types::chainstate::StacksAddress;
-use crate::types::chainstate::TrieHash;
-use crate::types::chainstate::VRFSeed;
-
 use crate::chainstate::burn::ConsensusHash;
 use crate::chainstate::burn::Opcodes;
 use crate::chainstate::stacks::address::PoxAddress;
+use crate::types::chainstate::BlockHeaderHash;
+use crate::types::chainstate::BurnchainHeaderHash;
+use crate::types::chainstate::StacksAddress;
+use crate::types::chainstate::TrieHash;
+use crate::types::chainstate::VRFSeed;
 use crate::util_lib::db::DBConn;
 use crate::util_lib::db::DBTx;
 use crate::util_lib::db::Error as db_error;
-use stacks_common::util::hash::Hash160;
-use stacks_common::util::hash::Sha512Trunc256Sum;
-use stacks_common::util::secp256k1::MessageSignature;
-use stacks_common::util::vrf::VRFPublicKey;
-
-use crate::types::chainstate::BurnchainHeaderHash;
 
 pub mod delegate_stx;
 pub mod leader_block_commit;
 /// This module contains all burn-chain operations
 pub mod leader_key_register;
+pub mod peg_in;
+pub mod peg_out_fulfill;
+pub mod peg_out_request;
 pub mod stack_stx;
 pub mod transfer_stx;
 pub mod user_burn_support;
+
+#[cfg(test)]
+mod test;
 
 #[derive(Debug)]
 pub enum Error {
@@ -97,6 +106,9 @@ pub enum Error {
 
     // errors associated with delegate stx
     DelegateStxMustBePositive,
+
+    // sBTC errors
+    AmountMustBePositive,
 }
 
 impl fmt::Display for Error {
@@ -159,6 +171,7 @@ impl fmt::Display for Error {
                 "Stack STX must set num cycles between 1 and max num cycles"
             ),
             Error::DelegateStxMustBePositive => write!(f, "Delegate STX must be positive amount"),
+            Self::AmountMustBePositive => write!(f, "Peg in amount must be positive"),
         }
     }
 }
@@ -308,7 +321,106 @@ pub struct DelegateStxOp {
     pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+fn hex_ser_memo<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+    let inst = to_hex(bytes);
+    s.serialize_str(inst.as_str())
+}
+
+fn hex_deser_memo<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    hex_bytes(&inst_str).map_err(serde::de::Error::custom)
+}
+
+fn hex_serialize<S: serde::Serializer>(bhh: &BurnchainHeaderHash, s: S) -> Result<S::Ok, S::Error> {
+    let inst = bhh.to_hex();
+    s.serialize_str(inst.as_str())
+}
+
+fn hex_deserialize<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<BurnchainHeaderHash, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    BurnchainHeaderHash::from_hex(&inst_str).map_err(serde::de::Error::custom)
+}
+
+fn principal_serialize<S: serde::Serializer>(pd: &PrincipalData, s: S) -> Result<S::Ok, S::Error> {
+    let inst = pd.to_string();
+    s.serialize_str(inst.as_str())
+}
+
+fn principal_deserialize<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<PrincipalData, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    PrincipalData::parse(&inst_str).map_err(serde::de::Error::custom)
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct PegInOp {
+    #[serde(serialize_with = "principal_serialize")]
+    #[serde(deserialize_with = "principal_deserialize")]
+    pub recipient: PrincipalData,
+    #[serde(serialize_with = "crate::chainstate::stacks::address::pox_addr_b58_serialize")]
+    #[serde(deserialize_with = "crate::chainstate::stacks::address::pox_addr_b58_deser")]
+    pub peg_wallet_address: PoxAddress,
+    pub amount: u64, // BTC amount to peg in, in satoshis
+    #[serde(serialize_with = "hex_ser_memo")]
+    #[serde(deserialize_with = "hex_deser_memo")]
+    pub memo: Vec<u8>, // extra unused bytes
+
+    // common to all transactions
+    pub txid: Txid,        // transaction ID
+    pub vtxindex: u32,     // index in the block where this tx occurs
+    pub block_height: u64, // block height at which this tx occurs
+    #[serde(deserialize_with = "hex_deserialize", serialize_with = "hex_serialize")]
+    pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct PegOutRequestOp {
+    pub amount: u64, // sBTC amount to peg out, in satoshis
+    #[serde(serialize_with = "crate::chainstate::stacks::address::pox_addr_b58_serialize")]
+    #[serde(deserialize_with = "crate::chainstate::stacks::address::pox_addr_b58_deser")]
+    pub recipient: PoxAddress, // Address to receive the BTC when the request is fulfilled
+    pub signature: MessageSignature, // Signature from sBTC owner as per SIP-021
+    #[serde(serialize_with = "crate::chainstate::stacks::address::pox_addr_b58_serialize")]
+    #[serde(deserialize_with = "crate::chainstate::stacks::address::pox_addr_b58_deser")]
+    pub peg_wallet_address: PoxAddress,
+    pub fulfillment_fee: u64, // Funding the fulfillment tx fee
+    #[serde(serialize_with = "hex_ser_memo")]
+    #[serde(deserialize_with = "hex_deser_memo")]
+    pub memo: Vec<u8>, // extra unused bytes
+
+    // common to all transactions
+    pub txid: Txid,        // transaction ID
+    pub vtxindex: u32,     // index in the block where this tx occurs
+    pub block_height: u64, // block height at which this tx occurs
+    #[serde(deserialize_with = "hex_deserialize", serialize_with = "hex_serialize")]
+    pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct PegOutFulfillOp {
+    pub chain_tip: StacksBlockId, // The Stacks chain tip whose state view was used to validate the peg-out request
+
+    pub amount: u64, // Transferred BTC amount, in satoshis
+    #[serde(serialize_with = "crate::chainstate::stacks::address::pox_addr_b58_serialize")]
+    #[serde(deserialize_with = "crate::chainstate::stacks::address::pox_addr_b58_deser")]
+    pub recipient: PoxAddress, // Address to receive the BTC
+    pub request_ref: Txid, // The peg out request which is fulfilled by this op
+    #[serde(serialize_with = "hex_ser_memo")]
+    #[serde(deserialize_with = "hex_deser_memo")]
+    pub memo: Vec<u8>, // extra unused bytes
+
+    // common to all transactions
+    pub txid: Txid,        // transaction ID
+    pub vtxindex: u32,     // index in the block where this tx occurs
+    pub block_height: u64, // block height at which this tx occurs
+    #[serde(deserialize_with = "hex_deserialize", serialize_with = "hex_serialize")]
+    pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockstackOperationType {
     LeaderKeyRegister(LeaderKeyRegisterOp),
     LeaderBlockCommit(LeaderBlockCommitOp),
@@ -317,6 +429,24 @@ pub enum BlockstackOperationType {
     StackStx(StackStxOp),
     TransferStx(TransferStxOp),
     DelegateStx(DelegateStxOp),
+    PegIn(PegInOp),
+    PegOutRequest(PegOutRequestOp),
+    PegOutFulfill(PegOutFulfillOp),
+}
+
+// serialization helpers for blockstack_op_to_json function
+pub fn memo_serialize(memo: &Vec<u8>) -> String {
+    let hex_inst = to_hex(memo);
+    format!("0x{}", hex_inst)
+}
+
+pub fn stacks_addr_serialize(addr: &StacksAddress) -> serde_json::Value {
+    let addr_str = addr.to_string();
+    json!({
+        "address": addr_str,
+        "address_hash_bytes": format!("0x{}", addr.bytes),
+        "address_version": addr.version
+    })
 }
 
 impl BlockstackOperationType {
@@ -329,6 +459,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(_) => Opcodes::PreStx,
             BlockstackOperationType::TransferStx(_) => Opcodes::TransferStx,
             BlockstackOperationType::DelegateStx(_) => Opcodes::DelegateStx,
+            BlockstackOperationType::PegIn(_) => Opcodes::PegIn,
+            BlockstackOperationType::PegOutRequest(_) => Opcodes::PegOutRequest,
+            BlockstackOperationType::PegOutFulfill(_) => Opcodes::PegOutFulfill,
         }
     }
 
@@ -345,6 +478,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref data) => &data.txid,
             BlockstackOperationType::TransferStx(ref data) => &data.txid,
             BlockstackOperationType::DelegateStx(ref data) => &data.txid,
+            BlockstackOperationType::PegIn(ref data) => &data.txid,
+            BlockstackOperationType::PegOutRequest(ref data) => &data.txid,
+            BlockstackOperationType::PegOutFulfill(ref data) => &data.txid,
         }
     }
 
@@ -357,6 +493,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref data) => data.vtxindex,
             BlockstackOperationType::TransferStx(ref data) => data.vtxindex,
             BlockstackOperationType::DelegateStx(ref data) => data.vtxindex,
+            BlockstackOperationType::PegIn(ref data) => data.vtxindex,
+            BlockstackOperationType::PegOutRequest(ref data) => data.vtxindex,
+            BlockstackOperationType::PegOutFulfill(ref data) => data.vtxindex,
         }
     }
 
@@ -369,6 +508,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref data) => data.block_height,
             BlockstackOperationType::TransferStx(ref data) => data.block_height,
             BlockstackOperationType::DelegateStx(ref data) => data.block_height,
+            BlockstackOperationType::PegIn(ref data) => data.block_height,
+            BlockstackOperationType::PegOutRequest(ref data) => data.block_height,
+            BlockstackOperationType::PegOutFulfill(ref data) => data.block_height,
         }
     }
 
@@ -381,6 +523,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::TransferStx(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DelegateStx(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::PegIn(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::PegOutRequest(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::PegOutFulfill(ref data) => data.burn_header_hash.clone(),
         }
     }
 
@@ -396,6 +541,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref mut data) => data.block_height = height,
             BlockstackOperationType::TransferStx(ref mut data) => data.block_height = height,
             BlockstackOperationType::DelegateStx(ref mut data) => data.block_height = height,
+            BlockstackOperationType::PegIn(ref mut data) => data.block_height = height,
+            BlockstackOperationType::PegOutRequest(ref mut data) => data.block_height = height,
+            BlockstackOperationType::PegOutFulfill(ref mut data) => data.block_height = height,
         };
     }
 
@@ -413,7 +561,90 @@ impl BlockstackOperationType {
             BlockstackOperationType::PreStx(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::TransferStx(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DelegateStx(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::PegIn(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::PegOutRequest(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::PegOutFulfill(ref mut data) => data.burn_header_hash = hash,
         };
+    }
+
+    pub fn pre_stx_to_json(op: &PreStxOp) -> serde_json::Value {
+        json!({
+            "pre_stx": {
+                "burn_block_height": op.block_height,
+                "burn_header_hash": &op.burn_header_hash.to_hex(),
+                "output": stacks_addr_serialize(&op.output),
+                "burn_txid": op.txid,
+                "vtxindex": op.vtxindex,
+            }
+        })
+    }
+
+    pub fn stack_stx_to_json(op: &StackStxOp) -> serde_json::Value {
+        json!({
+            "stack_stx": {
+                "burn_block_height": op.block_height,
+                "burn_header_hash": &op.burn_header_hash.to_hex(),
+                "num_cycles": op.num_cycles,
+                "reward_addr": op.reward_addr.clone().to_b58(),
+                "sender": stacks_addr_serialize(&op.sender),
+                "stacked_ustx": op.stacked_ustx,
+                "burn_txid": op.txid,
+                "vtxindex": op.vtxindex,
+            }
+        })
+    }
+
+    pub fn transfer_stx_to_json(op: &TransferStxOp) -> serde_json::Value {
+        json!({
+            "transfer_stx": {
+                "burn_block_height": op.block_height,
+                "burn_header_hash": &op.burn_header_hash.to_hex(),
+                "memo": memo_serialize(&op.memo),
+                "recipient": stacks_addr_serialize(&op.recipient),
+                "sender": stacks_addr_serialize(&op.sender),
+                "transfered_ustx": op.transfered_ustx,
+                "burn_txid": op.txid,
+                "vtxindex": op.vtxindex,
+            }
+        })
+    }
+
+    pub fn delegate_stx_to_json(op: &DelegateStxOp) -> serde_json::Value {
+        json!({
+            "delegate_stx": {
+                "burn_block_height": op.block_height,
+                "burn_header_hash": &op.burn_header_hash.to_hex(),
+                "delegate_to": stacks_addr_serialize(&op.delegate_to),
+                "delegated_ustx": op.delegated_ustx,
+                "sender": stacks_addr_serialize(&op.sender),
+                "reward_addr": &op.reward_addr.as_ref().map(|(index, addr)| (index, addr.clone().to_b58())),
+                "burn_txid": op.txid,
+                "until_burn_height": op.until_burn_height,
+                "vtxindex": op.vtxindex,
+            }
+
+        })
+    }
+
+    // An explicit JSON serialization function is used (instead of using the default serialization
+    // function) for the Blockstack ops. This is because (a) we wanted the serialization to be
+    // more readable, and (b) the serialization used to display PoxAddress as a string is lossy,
+    // so we wouldn't want to use this serialization by default (because there will be issues with
+    // deserialization).
+    pub fn blockstack_op_to_json(&self) -> serde_json::Value {
+        match self {
+            BlockstackOperationType::PreStx(op) => Self::pre_stx_to_json(op),
+            BlockstackOperationType::StackStx(op) => Self::stack_stx_to_json(op),
+            BlockstackOperationType::TransferStx(op) => Self::transfer_stx_to_json(op),
+            BlockstackOperationType::DelegateStx(op) => Self::delegate_stx_to_json(op),
+            BlockstackOperationType::PegIn(op) => json!({ "peg_in": op }),
+            BlockstackOperationType::PegOutRequest(op) => json!({ "peg_out_request": op }),
+            BlockstackOperationType::PegOutFulfill(op) => json!({ "peg_out_fulfill": op }),
+            // json serialization for the remaining op types is not implemented for now. This function
+            // is currently only used to json-ify burnchain ops executed as Stacks transactions (so,
+            // stack_stx, transfer_stx, and delegate_stx).
+            _ => json!(null),
+        }
     }
 }
 
@@ -427,6 +658,9 @@ impl fmt::Display for BlockstackOperationType {
             BlockstackOperationType::UserBurnSupport(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::TransferStx(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DelegateStx(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::PegIn(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::PegOutRequest(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::PegOutFulfill(ref op) => write!(f, "{:?}", op),
         }
     }
 }

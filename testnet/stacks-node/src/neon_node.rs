@@ -149,7 +149,9 @@ use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use std::time::Duration;
 use std::{thread, thread::JoinHandle};
 
-use stacks::burnchains::{Burnchain, BurnchainParameters, Txid};
+use clarity::vm::ast::ASTRules;
+use clarity::vm::types::PrincipalData;
+use stacks::burnchains::{db::BurnchainHeaderReader, Burnchain, BurnchainParameters, Txid};
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::burn::operations::{
     leader_block_commit::{RewardSetInfo, BURN_BLOCK_MINED_AT_MODULUS},
@@ -166,8 +168,9 @@ use stacks::chainstate::stacks::db::{StacksChainState, MINER_REWARD_MATURITY};
 use stacks::chainstate::stacks::Error as ChainstateError;
 use stacks::chainstate::stacks::StacksPublicKey;
 use stacks::chainstate::stacks::{
-    miner::signal_mining_blocked, miner::signal_mining_ready, miner::BlockBuilderSettings,
-    miner::MinerStatus, miner::StacksMicroblockBuilder, StacksBlockBuilder, StacksBlockHeader,
+    miner::get_mining_spend_amount, miner::signal_mining_blocked, miner::signal_mining_ready,
+    miner::BlockBuilderSettings, miner::MinerStatus, miner::StacksMicroblockBuilder,
+    StacksBlockBuilder, StacksBlockHeader,
 };
 use stacks::chainstate::stacks::{
     CoinbasePayload, StacksBlock, StacksMicroblock, StacksTransaction, StacksTransactionSigner,
@@ -181,6 +184,7 @@ use stacks::cost_estimates::metrics::CostMetric;
 use stacks::cost_estimates::metrics::UnitMetric;
 use stacks::cost_estimates::UnitEstimator;
 use stacks::cost_estimates::{CostEstimator, FeeEstimator};
+use stacks::monitoring;
 use stacks::monitoring::{increment_stx_blocks_mined_counter, update_active_miners_count_gauge};
 use stacks::net::{
     atlas::{AtlasConfig, AtlasDB, AttachmentInstance},
@@ -203,24 +207,19 @@ use stacks::util::secp256k1::Secp256k1PrivateKey;
 use stacks::util::vrf::VRFPublicKey;
 use stacks::util_lib::strings::{UrlString, VecDisplay};
 use stacks::vm::costs::ExecutionCost;
-
-use crate::burnchains::bitcoin_regtest_controller::BitcoinRegtestController;
-use crate::burnchains::bitcoin_regtest_controller::OngoingBlockCommit;
-use crate::run_loop::neon::Counters;
-use crate::run_loop::neon::RunLoop;
-use crate::run_loop::RegisteredKey;
-use crate::ChainTip;
-
-use super::{BurnchainController, Config, EventDispatcher, Keychain};
-use crate::syncctl::PoxSyncWatchdogComms;
-use stacks::monitoring;
-
 use stacks_common::types::chainstate::StacksBlockId;
 use stacks_common::types::chainstate::StacksPrivateKey;
 use stacks_common::util::vrf::VRFProof;
 
-use clarity::vm::ast::ASTRules;
-use clarity::vm::types::PrincipalData;
+use super::{BurnchainController, Config, EventDispatcher, Keychain};
+use crate::burnchains::bitcoin_regtest_controller::BitcoinRegtestController;
+use crate::burnchains::bitcoin_regtest_controller::OngoingBlockCommit;
+use crate::burnchains::make_bitcoin_indexer;
+use crate::run_loop::neon::Counters;
+use crate::run_loop::neon::RunLoop;
+use crate::run_loop::RegisteredKey;
+use crate::syncctl::PoxSyncWatchdogComms;
+use crate::ChainTip;
 
 pub const RELAYER_MAX_BUFFER: usize = 100;
 const VRF_MOCK_MINER_KEY: u64 = 1;
@@ -1712,7 +1711,8 @@ impl BlockMinerThread {
             }
         };
 
-        let burn_fee_cap = self.config.burnchain.burn_fee_cap;
+        // let burn_fee_cap = self.config.burnchain.burn_fee_cap;
+        let burn_fee_cap = get_mining_spend_amount(self.globals.get_miner_status());
         let sunset_burn = self.burnchain.expected_sunset_burn(
             self.burn_block.block_height + 1,
             burn_fee_cap,
@@ -3666,8 +3666,9 @@ impl PeerThread {
 
     /// Run one pass of the p2p/http state machine
     /// Return true if we should continue running passes; false if not
-    pub fn run_one_pass(
+    pub fn run_one_pass<B: BurnchainHeaderReader>(
         &mut self,
+        indexer: &B,
         dns_client_opt: Option<&mut DNSClient>,
         event_dispatcher: &EventDispatcher,
         cost_estimator: &Box<dyn CostEstimator>,
@@ -3726,6 +3727,7 @@ impl PeerThread {
             };
             p2p_thread.with_network(|_, net| {
                 net.run(
+                    indexer,
                     sortdb,
                     chainstate,
                     mempool,
@@ -4086,12 +4088,15 @@ impl StacksNode {
             .make_cost_metric()
             .unwrap_or_else(|| Box::new(UnitMetric));
 
+        let indexer = make_bitcoin_indexer(&p2p_thread.config);
+
         // receive until we can't reach the receiver thread
         loop {
             if !p2p_thread.globals.keep_running() {
                 break;
             }
             if !p2p_thread.run_one_pass(
+                &indexer,
                 Some(&mut dns_client),
                 &event_dispatcher,
                 &cost_estimator,

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use super::types::signatures::{FunctionArgSignature, FunctionReturnsSignature};
 use crate::vm::analysis::type_checker::v2_1::natives::SimpleNativeFunction;
 use crate::vm::analysis::type_checker::v2_1::TypedNativeFunction;
 use crate::vm::costs::ExecutionCost;
@@ -23,8 +24,6 @@ use crate::vm::types::signatures::ASCII_40;
 use crate::vm::types::{FixedFunction, FunctionType, SequenceSubtype, StringSubtype, Value};
 use crate::vm::variables::NativeVariables;
 use crate::vm::ClarityVersion;
-
-use super::types::signatures::{FunctionArgSignature, FunctionReturnsSignature};
 
 pub mod contracts;
 
@@ -981,7 +980,7 @@ inputted value. The function always returns `true`.",
 
 const MAP_API: SpecialAPI = SpecialAPI {
     input_type: "Function(A, B, ..., N) -> X, sequence_A, sequence_B, ..., sequence_N",
-    snippet: "map ${1:sequence} ${2:sequence}",
+    snippet: "map ${1:func} ${2:sequence}",
     output_type: "(list X)",
     signature: "(map func sequence_A sequence_B ... sequence_N)",
     description: "The `map` function applies the function `func` to each corresponding element of the input sequences,
@@ -1134,10 +1133,10 @@ In Clarity1, `element-at` must be used (without the `?`). The `?` is added in Cl
 
 const INDEX_OF_API: SpecialAPI = SpecialAPI {
     input_type: "sequence_A, A",
-    snippet: "index-of ${1:sequence} ${2:item}",
+    snippet: "index-of? ${1:sequence} ${2:item}",
     output_type: "(optional uint)",
-    signature: "(index-of sequence item)",
-    description: "The `index-of` function returns the first index at which `item` can be
+    signature: "(index-of? sequence item)",
+    description: "The `index-of?` function returns the first index at which `item` can be
 found, using `is-eq` checks, in the provided sequence.
 Applicable sequence types are `(list A)`, `buff`, `string-ascii` and `string-utf8`,
 for which the corresponding element types are, respectively, `A`, `(buff 1)`, `(string-ascii 1)` and `(string-utf8 1)`.
@@ -1146,11 +1145,11 @@ supplied), this function returns `none`.
 In Clarity1, `index-of` must be used (without the `?`). The `?` is added in Clarity2 for consistency -- built-ins that return responses or optionals end in `?`. The Clarity1 spelling is left as an alias in Clarity2 for backwards compatibility.
 ",
     example: r#"
-(index-of "blockstack" "b") ;; Returns (some u0)
-(index-of "blockstack" "k") ;; Returns (some u4)
-(index-of "blockstack" "") ;; Returns none
-(index-of (list 1 2 3 4 5) 6) ;; Returns none
-(index-of 0xfb01 0x01) ;; Returns (some u1)
+(index-of? "blockstack" "b") ;; Returns (some u0)
+(index-of? "blockstack" "k") ;; Returns (some u4)
+(index-of? "blockstack" "") ;; Returns none
+(index-of? (list 1 2 3 4 5) 6) ;; Returns none
+(index-of? 0xfb01 0x01) ;; Returns (some u1)
 "#,
 };
 
@@ -2628,6 +2627,19 @@ pub fn make_json_api_reference() -> String {
 
 #[cfg(test)]
 mod test {
+    use stacks_common::consts::CHAIN_ID_TESTNET;
+    use stacks_common::types::{StacksEpochId, PEER_VERSION_EPOCH_2_1};
+    use stacks_common::util::hash::hex_bytes;
+
+    use super::make_json_api_reference;
+    use super::{get_input_type_string, make_all_api_reference};
+    use crate::address::AddressHashMode;
+    use crate::types::chainstate::{SortitionId, StacksAddress, StacksBlockId};
+    use crate::types::Address;
+    use crate::vm::analysis::type_check;
+    use crate::vm::ast::ASTRules;
+    use crate::vm::costs::ExecutionCost;
+    use crate::vm::types::TupleData;
     use crate::vm::{
         ast,
         contexts::OwnedEnvironment,
@@ -2642,25 +2654,11 @@ mod test {
         ClarityVersion, ContractContext, Error, GlobalContext, LimitedCostTracker,
         QualifiedContractIdentifier, Value,
     };
-    use stacks_common::types::{StacksEpochId, PEER_VERSION_EPOCH_2_1};
-    use stacks_common::util::hash::hex_bytes;
-
-    use super::make_json_api_reference;
-    use super::{get_input_type_string, make_all_api_reference};
-    use crate::address::AddressHashMode;
-    use crate::types::chainstate::{SortitionId, StacksAddress, StacksBlockId};
-    use crate::types::Address;
-    use crate::vm::analysis::type_check;
-    use crate::vm::types::TupleData;
     use crate::{types::chainstate::VRFSeed, vm::StacksEpoch};
     use crate::{
         types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, ConsensusHash},
         vm::database::{ClarityDatabase, MemoryBackingStore},
     };
-
-    use crate::vm::ast::ASTRules;
-    use crate::vm::costs::ExecutionCost;
-    use stacks_common::consts::CHAIN_ID_TESTNET;
 
     struct DocHeadersDB {}
     const DOC_HEADER_DB: DocHeadersDB = DocHeadersDB {};

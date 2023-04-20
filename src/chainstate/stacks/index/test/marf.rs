@@ -20,6 +20,10 @@
 use std::fs;
 use std::io::Cursor;
 
+use stacks_common::util::get_epoch_time_ms;
+use stacks_common::util::hash::to_hex;
+
+use super::*;
 use crate::chainstate::stacks::index::bits::*;
 use crate::chainstate::stacks::index::marf::*;
 use crate::chainstate::stacks::index::node::*;
@@ -32,8 +36,6 @@ use crate::chainstate::stacks::index::Error;
 use crate::chainstate::stacks::index::MARFValue;
 use crate::chainstate::stacks::index::TrieHashExtension;
 use crate::chainstate::stacks::index::TrieLeaf;
-use stacks_common::util::get_epoch_time_ms;
-use stacks_common::util::hash::to_hex;
 use stacks_common::types::chainstate::{MARFOpenOpts, TrieHashCalculationMode, TrieCachingStrategy, BlobCompressionType};
 use stacks_proc_macros::generate_test_cases_for_marf_open_opts;
 use test_case::test_case;
