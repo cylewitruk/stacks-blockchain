@@ -1761,7 +1761,7 @@ mod tests {
         // sqlite only have entries
         assert_eq!(
             0,
-            sql.query_row::<u32, _, _>("SELECT COUNT(value) FROM data_table", NO_PARAMS, |row| row
+            sql.query_row::<u32, _, _>("SELECT COUNT(value) FROM clarity_metadata", NO_PARAMS, |row| row
                 .get(0))
                 .unwrap()
         );
@@ -1800,7 +1800,7 @@ mod tests {
         let genesis_metadata_entries = marf
             .sql_conn()
             .query_row::<u32, _, _>(
-                "SELECT COUNT(value) FROM metadata_table",
+                "SELECT COUNT(value) FROM clarity_metadata",
                 NO_PARAMS,
                 |row| row.get(0),
             )
@@ -1909,7 +1909,7 @@ mod tests {
         assert_eq!(
             genesis_metadata_entries,
             sql.query_row::<u32, _, _>(
-                "SELECT COUNT(value) FROM metadata_table",
+                "SELECT COUNT(value) FROM clarity_metadata",
                 NO_PARAMS,
                 |row| row.get(0)
             )
