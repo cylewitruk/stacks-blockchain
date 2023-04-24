@@ -208,13 +208,16 @@ impl SqliteConnection {
         conn.query_row("PRAGMA journal_mode = WAL;", NO_PARAMS, |_row| Ok(()))
             .map_err(|x| InterpreterError::SqliteError(IncomparableError { err: x }))?;
 
+        // Check if the clarity_schema_version table exists. If not, then we are either initializing a
+        // completely fresh database, or we're in v1.
         trace!("Checking if clarity_schema_version exists...");
         let clarity_schema_version_exists: bool = conn
             .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name=?", &["clarity_schema_version"], |row| row.get(0))
             .map_err(|x| InterpreterError::SqliteError(IncomparableError { err: x }))?;
 
         // If the clarity_schema_version table does not exist then we are using schema v1. This will be used
-        // for migrations, so we need to create this table first and set the version to 1.
+        // for migrations, so we need to create this table first and set the version to 1. We also need
+        // to make sure that the v1 tables exist in-case we're initializing a fresh database.
         if !clarity_schema_version_exists {
             trace!("clarity_schema_version does not exist, creating it.");
             conn.execute("CREATE TABLE clarity_schema_version (version INTEGER PRIMARY KEY)", NO_PARAMS)
@@ -334,7 +337,6 @@ impl SqliteConnection {
             }
 
             trace!("Database migration complete!");
-
         }
 
         Self::check_schema(conn)?;
