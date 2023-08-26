@@ -35,7 +35,7 @@ use crate::vm::representations::SymbolicExpressionType::{Atom, List};
 use crate::vm::representations::{ClarityName, SymbolicExpression, SymbolicExpressionType};
 use crate::vm::types::StacksAddressExtensions;
 use crate::vm::types::{
-    BuffData, CharType, PrincipalData, ResponseData, SequenceData, TypeSignature, Value, BUFF_32,
+    BuffData, CharType, PrincipalData, ResponseData, SequenceData, TypeSignature, IntegerSubtype, Value, BUFF_32,
     BUFF_33, BUFF_65,
 };
 use crate::vm::{eval, ClarityVersion, Environment, LocalContext};
@@ -44,12 +44,22 @@ macro_rules! native_hash_func {
     ($name:ident, $module:ty) => {
         pub fn $name(input: Value) -> Result<Value> {
             let bytes = match input {
-                Value::Int(value) => Ok(value.to_le_bytes().to_vec()),
-                Value::UInt(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int8(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt8(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int16(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt16(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int32(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt32(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int64(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt64(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int128(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt128(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::Int256(value) => Ok(value.to_le_bytes().to_vec()),
+                Value::UInt256(value) => Ok(value.to_le_bytes().to_vec()),
                 Value::Sequence(SequenceData::Buffer(value)) => Ok(value.data),
                 _ => Err(CheckErrors::UnionTypeValueError(
                     vec![
-                        TypeSignature::IntType,
+                        TypeSignature::IntegerType(IntegerSubtype::I8),
                         TypeSignature::UIntType,
                         TypeSignature::max_buffer(),
                     ],

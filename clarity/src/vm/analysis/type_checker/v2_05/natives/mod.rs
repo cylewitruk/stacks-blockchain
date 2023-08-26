@@ -28,6 +28,7 @@ use crate::vm::costs::{
 };
 use crate::vm::errors::{Error as InterpError, RuntimeErrorType};
 use crate::vm::functions::{handle_binding_list, NativeFunctions};
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     BlockInfoProperty, FixedFunction, FunctionArg, FunctionSignature, FunctionType, PrincipalData,
     TupleTypeSignature, TypeSignature, Value, BUFF_20, BUFF_32, BUFF_33, BUFF_64, BUFF_65,
@@ -479,7 +480,7 @@ fn check_principal_of(
 ) -> TypeResult {
     check_argument_count(1, args)?;
     checker.type_check_expects(&args[0], context, &BUFF_33)?;
-    Ok(TypeSignature::new_response(TypeSignature::PrincipalType, TypeSignature::UIntType).unwrap())
+    Ok(TypeSignature::new_response(TypeSignature::PrincipalType, TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap())
 }
 
 fn check_secp256k1_recover(
@@ -490,7 +491,7 @@ fn check_secp256k1_recover(
     check_argument_count(2, args)?;
     checker.type_check_expects(&args[0], context, &BUFF_32)?;
     checker.type_check_expects(&args[1], context, &BUFF_65)?;
-    Ok(TypeSignature::new_response(BUFF_33.clone(), TypeSignature::UIntType).unwrap())
+    Ok(TypeSignature::new_response(BUFF_33.clone(), TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap())
 }
 
 fn check_secp256k1_verify(
@@ -524,7 +525,7 @@ fn check_get_block_info(
         block_info_prop_str.to_string(),
     )))?;
 
-    checker.type_check_expects(&args[1], &context, &TypeSignature::UIntType)?;
+    checker.type_check_expects(&args[1], &context, &TypeSignature::IntegerType(IntegerSubtype::U128))?;
 
     Ok(TypeSignature::new_option(block_info_prop.type_result())?)
 }

@@ -26,6 +26,7 @@ use crate::vm::errors::{
     RuntimeErrorType,
 };
 use crate::vm::representations::{SymbolicExpression, SymbolicExpressionType};
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     signatures::ListTypeData, CharType, ListData, SequenceData, TypeSignature,
     TypeSignature::BoolType, Value,
@@ -283,7 +284,7 @@ pub fn special_as_max_len(
 
     runtime_cost(ClarityCostFunction::AsMaxLen, env, 0)?;
 
-    if let Some(Value::UInt(expected_len)) = args[1].match_literal_value() {
+    if let Some(Value::UInt128(expected_len)) = args[1].match_literal_value() {
         let sequence_len = match sequence {
             Value::Sequence(ref sequence_data) => sequence_data.len() as u128,
             _ => {
@@ -301,7 +302,7 @@ pub fn special_as_max_len(
     } else {
         let actual_len = eval(&args[1], env, context)?;
         Err(
-            CheckErrors::TypeError(TypeSignature::UIntType, TypeSignature::type_of(&actual_len))
+            CheckErrors::TypeError(TypeSignature::IntegerType(IntegerSubtype::U128), TypeSignature::type_of(&actual_len))
                 .into(),
         )
     }
@@ -309,7 +310,7 @@ pub fn special_as_max_len(
 
 pub fn native_len(sequence: Value) -> Result<Value> {
     match sequence {
-        Value::Sequence(sequence_data) => Ok(Value::UInt(sequence_data.len() as u128)),
+        Value::Sequence(sequence_data) => Ok(Value::UInt128(sequence_data.len() as u128)),
         _ => Err(CheckErrors::ExpectedSequence(TypeSignature::type_of(&sequence)).into()),
     }
 }
@@ -317,7 +318,7 @@ pub fn native_len(sequence: Value) -> Result<Value> {
 pub fn native_index_of(sequence: Value, to_find: Value) -> Result<Value> {
     if let Value::Sequence(sequence_data) = sequence {
         match sequence_data.contains(to_find)? {
-            Some(index) => Value::some(Value::UInt(index as u128)),
+            Some(index) => Value::some(Value::UInt128(index as u128)),
             None => Ok(Value::none()),
         }
     } else {
@@ -332,14 +333,14 @@ pub fn native_element_at(sequence: Value, index: Value) -> Result<Value> {
         return Err(CheckErrors::ExpectedSequence(TypeSignature::type_of(&sequence)).into());
     };
 
-    let index = if let Value::UInt(index_u128) = index {
+    let index = if let Value::UInt128(index_u128) = index {
         if let Ok(index_usize) = usize::try_from(index_u128) {
             index_usize
         } else {
             return Ok(Value::none());
         }
     } else {
-        return Err(CheckErrors::TypeValueError(TypeSignature::UIntType, index).into());
+        return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), index).into());
     };
 
     if let Some(result) = sequence_data.element_at(index) {
@@ -363,7 +364,7 @@ pub fn special_slice(
 
     let sliced_seq_res = (|| {
         match (seq, left_position, right_position) {
-            (Value::Sequence(seq), Value::UInt(left_position), Value::UInt(right_position)) => {
+            (Value::Sequence(seq), Value::UInt32(left_position), Value::UInt32(right_position)) => {
                 let (left_position, right_position) =
                     match (u32::try_from(left_position), u32::try_from(right_position)) {
                         (Ok(left_position), Ok(right_position)) => (left_position, right_position),
@@ -426,14 +427,14 @@ pub fn special_replace_at(
         return Err(CheckErrors::TypeValueError(expected_elem_type, new_element).into());
     }
 
-    let index = if let Value::UInt(index_u128) = index_val {
+    let index = if let Value::UInt128(index_u128) = index_val {
         if let Ok(index_usize) = usize::try_from(index_u128) {
             index_usize
         } else {
             return Ok(Value::none());
         }
     } else {
-        return Err(CheckErrors::TypeValueError(TypeSignature::UIntType, index_val).into());
+        return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), index_val).into());
     };
 
     if let Value::Sequence(data) = seq {

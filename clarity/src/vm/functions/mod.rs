@@ -183,6 +183,18 @@ define_versioned_named_enum!(NativeFunctions(ClarityVersion) {
     ToConsensusBuff("to-consensus-buff?", ClarityVersion::Clarity2),
     FromConsensusBuff("from-consensus-buff?", ClarityVersion::Clarity2),
     ReplaceAt("replace-at?", ClarityVersion::Clarity2),
+    ToInt8("to-i8", ClarityVersion::Clarity2),
+    ToUint8("to-u8", ClarityVersion::Clarity2),
+    ToInt16("to-i16", ClarityVersion::Clarity2),
+    ToUint16("to-u16", ClarityVersion::Clarity2),
+    ToInt32("to-i32", ClarityVersion::Clarity2),
+    ToUInt32("to-u32", ClarityVersion::Clarity2),
+    ToInt64("to-i64", ClarityVersion::Clarity2),
+    ToUInt64("to-u64", ClarityVersion::Clarity2),
+    ToInt128("to-i128", ClarityVersion::Clarity2),
+    ToUInt128("to-u128", ClarityVersion::Clarity2),
+    ToInt256("to-i256", ClarityVersion::Clarity2),
+    ToUInt256("to-u256", ClarityVersion::Clarity2),
 });
 
 impl NativeFunctions {

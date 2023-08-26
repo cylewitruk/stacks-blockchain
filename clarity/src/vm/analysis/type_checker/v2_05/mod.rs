@@ -43,7 +43,7 @@ use crate::vm::representations::SymbolicExpressionType::{
     Atom, AtomValue, Field, List, LiteralValue, TraitReference,
 };
 use crate::vm::representations::{depth_traverse, ClarityName, SymbolicExpression};
-use crate::vm::types::signatures::{FunctionSignature, BUFF_20};
+use crate::vm::types::signatures::{FunctionSignature, BUFF_20, IntegerSubtype};
 use crate::vm::types::{
     parse_name_type_pairs, FixedFunction, FunctionArg, FunctionType, PrincipalData,
     QualifiedContractIdentifier, TupleTypeSignature, TypeSignature, Value,
@@ -310,12 +310,12 @@ fn type_reserved_variable(variable_name: &str) -> Option<TypeSignature> {
         let var_type = match variable {
             TxSender => TypeSignature::PrincipalType,
             ContractCaller => TypeSignature::PrincipalType,
-            BlockHeight => TypeSignature::UIntType,
-            BurnBlockHeight => TypeSignature::UIntType,
+            BlockHeight => TypeSignature::IntegerType(IntegerSubtype::U128),
+            BurnBlockHeight => TypeSignature::IntegerType(IntegerSubtype::U128),
             NativeNone => TypeSignature::new_option(no_type()).unwrap(),
             NativeTrue => TypeSignature::BoolType,
             NativeFalse => TypeSignature::BoolType,
-            TotalLiquidMicroSTX => TypeSignature::UIntType,
+            TotalLiquidMicroSTX => TypeSignature::IntegerType(IntegerSubtype::U128),
             Regtest => TypeSignature::BoolType,
             TxSponsor | Mainnet | ChainId => {
                 unreachable!("tx-sponsor, mainnet, and chain-id should not reach here in 2.05")
@@ -767,7 +767,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         context: &mut TypingContext,
     ) -> CheckResult<ClarityName> {
         if let Some(bound) = bound {
-            self.type_check_expects(bound, context, &TypeSignature::UIntType)?;
+            self.type_check_expects(bound, context, &TypeSignature::IntegerType(IntegerSubtype::U128))?;
         }
 
         Ok(token_name.clone())
@@ -893,7 +893,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::UIntType.type_size()?,
+                        TypeSignature::IntegerType(IntegerSubtype::U128).type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }
@@ -902,7 +902,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::UIntType.type_size()?,
+                        TypeSignature::IntegerType(IntegerSubtype::U128).type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }

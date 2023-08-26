@@ -31,6 +31,7 @@ use crate::vm::errors::{
 };
 use crate::vm::functions::tuples;
 use crate::vm::representations::{SymbolicExpression, SymbolicExpressionType};
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     BlockInfoProperty, BuffData, BurnBlockInfoProperty, OptionalData, PrincipalData, SequenceData,
     TupleData, TypeSignature, Value, BUFF_32,
@@ -722,8 +723,8 @@ pub fn special_get_block_info(
     // Handle the block-height input arg clause.
     let height_eval = eval(&args[1], env, context)?;
     let height_value = match height_eval {
-        Value::UInt(result) => Ok(result),
-        x => Err(CheckErrors::TypeValueError(TypeSignature::UIntType, x)),
+        Value::UInt128(result) => Ok(result),
+        x => Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), x)),
     }?;
 
     let height_value = match u32::try_from(height_value) {
@@ -739,7 +740,7 @@ pub fn special_get_block_info(
     let result = match block_info_prop {
         BlockInfoProperty::Time => {
             let block_time = env.global_context.database.get_block_time(height_value);
-            Value::UInt(block_time as u128)
+            Value::UInt128(block_time as u128)
         }
         BlockInfoProperty::VrfSeed => {
             let vrf_seed = env.global_context.database.get_block_vrf_seed(height_value);
@@ -783,20 +784,20 @@ pub fn special_get_block_info(
                 .global_context
                 .database
                 .get_miner_spend_winner(height_value);
-            Value::UInt(winner_spend)
+            Value::UInt128(winner_spend)
         }
         BlockInfoProperty::MinerSpendTotal => {
             let total_spend = env
                 .global_context
                 .database
                 .get_miner_spend_total(height_value);
-            Value::UInt(total_spend)
+            Value::UInt128(total_spend)
         }
         BlockInfoProperty::BlockReward => {
             // this is already an optional
             let block_reward_opt = env.global_context.database.get_block_reward(height_value);
             return Ok(match block_reward_opt {
-                Some(x) => Value::some(Value::UInt(x))?,
+                Some(x) => Value::some(Value::UInt128(x))?,
                 None => Value::none(),
             });
         }
@@ -836,9 +837,9 @@ pub fn special_get_burn_block_info(
     // Handle the block-height input arg clause.
     let height_eval = eval(&args[1], env, context)?;
     let height_value = match height_eval {
-        Value::UInt(result) => result,
+        Value::UInt128(result) => result,
         x => {
-            return Err(CheckErrors::TypeValueError(TypeSignature::UIntType, x).into());
+            return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), x).into());
         }
     };
 
@@ -883,7 +884,7 @@ pub fn special_get_burn_block_info(
                             )
                             .expect("FATAL: could not convert address list to Value"),
                         ),
-                        ("payout".into(), Value::UInt(payout)),
+                        ("payout".into(), Value::UInt128(payout)),
                     ])
                     .expect("FATAL: failed to build pox addrs and payout tuple"),
                 ))

@@ -27,7 +27,7 @@ use crate::vm::representations::SymbolicExpressionType::{
     Atom, AtomValue, Field, List, LiteralValue,
 };
 use crate::vm::representations::{ClarityName, SymbolicExpression};
-use crate::vm::types::signatures::FunctionSignature;
+use crate::vm::types::signatures::{FunctionSignature, IntegerSubtype};
 use crate::vm::types::{
     parse_name_type_pairs, PrincipalData, QualifiedContractIdentifier, TraitIdentifier,
     TupleTypeSignature, TypeSignature, Value,
@@ -209,13 +209,13 @@ fn handle_define_fungible_token(
     if let Some(total_supply_expr) = total_supply {
         let context = LocalContext::new();
         let total_supply_value = eval(total_supply_expr, env, &context)?;
-        if let Value::UInt(total_supply_int) = total_supply_value {
+        if let Value::UInt128(total_supply_int) = total_supply_value {
             Ok(DefineResult::FungibleToken(
                 asset_name.clone(),
                 Some(total_supply_int),
             ))
         } else {
-            Err(CheckErrors::TypeValueError(TypeSignature::UIntType, total_supply_value).into())
+            Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), total_supply_value).into())
         }
     } else {
         Ok(DefineResult::FungibleToken(asset_name.clone(), None))

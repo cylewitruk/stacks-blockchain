@@ -274,7 +274,7 @@ mod test {
         analysis::ContractAnalysis,
         costs::LimitedCostTracker,
         types::{
-            signatures::CallableSubtype, FixedFunction, FunctionArg, QualifiedContractIdentifier,
+            signatures::{CallableSubtype, IntegerSubtype}, FixedFunction, FunctionArg, QualifiedContractIdentifier,
             StandardPrincipalData,
         },
     };
@@ -299,8 +299,8 @@ mod test {
             FunctionSignature {
                 args: vec![TypeSignature::TraitReferenceType(trait_id.clone())],
                 returns: TypeSignature::ResponseType(Box::new((
-                    TypeSignature::UIntType,
-                    TypeSignature::UIntType,
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
                 ))),
             },
         );
@@ -315,7 +315,7 @@ mod test {
                 }],
                 returns: TypeSignature::new_response(
                     TypeSignature::BoolType,
-                    TypeSignature::UIntType,
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
                 )
                 .unwrap(),
             }),
@@ -326,7 +326,7 @@ mod test {
             FunctionType::Fixed(FixedFunction {
                 args: vec![
                     FunctionArg {
-                        signature: TypeSignature::UIntType,
+                        signature: TypeSignature::IntegerType(IntegerSubtype::U128),
                         name: "u".into(),
                     },
                     FunctionArg {

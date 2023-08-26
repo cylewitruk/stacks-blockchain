@@ -117,7 +117,7 @@ fn create_principal_destruct_tuple(
 fn create_principal_true_error_response(error_int: PrincipalConstructErrorCode) -> Value {
     Value::error(Value::Tuple(
         TupleData::from_data(vec![
-            ("error_code".into(), Value::UInt(error_int as u128)),
+            ("error_code".into(), Value::UInt128(error_int as u128)),
             ("value".into(), Value::none()),
         ])
         .expect("FAIL: Failed to initialize tuple."),
@@ -136,7 +136,7 @@ fn create_principal_value_error_response(
 ) -> Value {
     Value::error(Value::Tuple(
         TupleData::from_data(vec![
-            ("error_code".into(), Value::UInt(error_int as u128)),
+            ("error_code".into(), Value::UInt128(error_int as u128)),
             (
                 "value".into(),
                 Value::some(value).expect("Unexpected problem creating Value."),

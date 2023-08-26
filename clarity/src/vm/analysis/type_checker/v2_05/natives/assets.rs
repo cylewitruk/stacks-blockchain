@@ -19,6 +19,7 @@ use crate::vm::analysis::errors::{check_argument_count, CheckError, CheckErrors,
 use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{cost_functions, runtime_cost};
 use crate::vm::representations::SymbolicExpression;
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{BlockInfoProperty, TupleTypeSignature, TypeSignature, MAX_VALUE_SIZE};
 
 pub fn check_special_get_owner(
@@ -65,7 +66,7 @@ pub fn check_special_get_balance(
     let expected_owner_type: TypeSignature = TypeSignature::PrincipalType;
     checker.type_check_expects(&args[1], context, &expected_owner_type)?;
 
-    Ok(TypeSignature::UIntType)
+    Ok(TypeSignature::IntegerType(IntegerSubtype::U128))
 }
 
 pub fn check_special_mint_asset(
@@ -94,7 +95,7 @@ pub fn check_special_mint_asset(
     checker.type_check_expects(&args[2], context, &expected_owner_type)?;
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
@@ -108,7 +109,7 @@ pub fn check_special_mint_token(
 
     let asset_name = args[0].match_atom().ok_or(CheckErrors::BadTokenName)?;
 
-    let expected_amount: TypeSignature = TypeSignature::UIntType;
+    let expected_amount: TypeSignature = TypeSignature::IntegerType(IntegerSubtype::U128);
     let expected_owner_type: TypeSignature = TypeSignature::PrincipalType;
 
     runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 1)?;
@@ -121,7 +122,7 @@ pub fn check_special_mint_token(
     }
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
@@ -153,7 +154,7 @@ pub fn check_special_transfer_asset(
     checker.type_check_expects(&args[3], context, &expected_owner_type)?; // recipient
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
@@ -167,7 +168,7 @@ pub fn check_special_transfer_token(
 
     let token_name = args[0].match_atom().ok_or(CheckErrors::BadTokenName)?;
 
-    let expected_amount: TypeSignature = TypeSignature::UIntType;
+    let expected_amount: TypeSignature = TypeSignature::IntegerType(IntegerSubtype::U128);
     let expected_owner_type: TypeSignature = TypeSignature::PrincipalType;
 
     runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 1)?;
@@ -181,7 +182,7 @@ pub fn check_special_transfer_token(
     }
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
@@ -201,7 +202,7 @@ pub fn check_special_get_token_supply(
 
     runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 1)?;
 
-    Ok(TypeSignature::UIntType)
+    Ok(TypeSignature::IntegerType(IntegerSubtype::U128))
 }
 
 pub fn check_special_burn_asset(
@@ -230,7 +231,7 @@ pub fn check_special_burn_asset(
     checker.type_check_expects(&args[2], context, &expected_owner_type)?;
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
@@ -244,7 +245,7 @@ pub fn check_special_burn_token(
 
     let asset_name = args[0].match_atom().ok_or(CheckErrors::BadTokenName)?;
 
-    let expected_amount: TypeSignature = TypeSignature::UIntType;
+    let expected_amount: TypeSignature = TypeSignature::IntegerType(IntegerSubtype::U128);
     let expected_owner_type: TypeSignature = TypeSignature::PrincipalType;
 
     runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 1)?;
@@ -257,7 +258,7 @@ pub fn check_special_burn_token(
     }
 
     Ok(
-        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::U128))))
             .into(),
     )
 }
