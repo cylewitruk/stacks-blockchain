@@ -20,6 +20,7 @@ use std::convert::{TryFrom, TryInto};
 use std::io::{Read, Write};
 use std::{cmp, error, fmt, str};
 
+use ethnum::{i256, u256};
 use lazy_static::lazy_static;
 use serde_json::Value as JSONValue;
 use stacks_common::types::StacksEpochId;
@@ -41,6 +42,8 @@ use crate::vm::types::{
     StringUTF8Length, TupleData, TypeSignature, Value, BOUND_VALUE_SERIALIZATION_BYTES,
     MAX_VALUE_SIZE,
 };
+
+use super::signatures::IntegerSubtype;
 
 /// Errors that may occur in serialization or deserialization
 /// If deserialization failed because the described type is a bad type and
@@ -116,8 +119,8 @@ impl From<CheckErrors> for SerializationError {
 }
 
 define_u8_enum!(TypePrefix {
-    Int = 0,
-    UInt = 1,
+    Int128 = 0, // Alias Int
+    UInt128 = 1, // Alias for UInt
     Buffer = 2,
     BoolTrue = 3,
     BoolFalse = 4,
@@ -130,7 +133,17 @@ define_u8_enum!(TypePrefix {
     List = 11,
     Tuple = 12,
     StringASCII = 13,
-    StringUTF8 = 14
+    StringUTF8 = 14,
+    Int8 = 15,
+    UInt8 = 16,
+    Int16 = 17,
+    UInt16 = 18,
+    Int32 = 19,
+    UInt32 = 20,
+    Int64 = 21,
+    UInt64 = 22,
+    Int256 = 23,
+    UInt256 = 24
 });
 
 impl From<&PrincipalData> for TypePrefix {
@@ -150,8 +163,18 @@ impl From<&Value> for TypePrefix {
         use super::Value::*;
 
         match v {
-            Int(_) => TypePrefix::Int,
-            UInt(_) => TypePrefix::UInt,
+            Int8(_) => TypePrefix::Int8,
+            UInt8(_) => TypePrefix::UInt8,
+            Int16(_) => TypePrefix::Int16,
+            UInt16(_) => TypePrefix::UInt16,
+            Int32(_) => TypePrefix::Int32,
+            UInt32(_) => TypePrefix::UInt32,
+            Int64(_) => TypePrefix::Int64,
+            UInt64(_) => TypePrefix::UInt64,
+            Int128(_) => TypePrefix::Int128,
+            UInt128(_) => TypePrefix::UInt128,
+            Int256(_) => TypePrefix::Int256,
+            UInt256(_) => TypePrefix::UInt256,
             Bool(value) => {
                 if *value {
                     TypePrefix::BoolTrue
@@ -315,8 +338,18 @@ impl TypeSignature {
                 // branch should always be used.
                 return Err(CheckErrors::CouldNotDetermineSerializationType);
             }
-            TypeSignature::IntType => 16,
-            TypeSignature::UIntType => 16,
+            TypeSignature::IntegerType(IntegerSubtype::I8) => 1,
+            TypeSignature::IntegerType(IntegerSubtype::U8) => 1,
+            TypeSignature::IntegerType(IntegerSubtype::I16) => 2,
+            TypeSignature::IntegerType(IntegerSubtype::U16) => 2,
+            TypeSignature::IntegerType(IntegerSubtype::I32) => 4,
+            TypeSignature::IntegerType(IntegerSubtype::U32) => 4,
+            TypeSignature::IntegerType(IntegerSubtype::I64) => 8,
+            TypeSignature::IntegerType(IntegerSubtype::U64) => 8,
+            TypeSignature::IntegerType(IntegerSubtype::I128) => 16,
+            TypeSignature::IntegerType(IntegerSubtype::U128) => 16,
+            TypeSignature::IntegerType(IntegerSubtype::I256) => 32,
+            TypeSignature::IntegerType(IntegerSubtype::U256) => 32,
             TypeSignature::BoolType => 0,
             TypeSignature::SequenceType(SequenceSubtype::ListType(list_type)) => {
                 // u32 length as big-endian bytes
@@ -482,17 +515,77 @@ impl Value {
         let prefix = TypePrefix::from_u8(header[0]).ok_or_else(|| "Bad type prefix")?;
 
         match prefix {
-            TypePrefix::Int => {
-                check_match!(expected_type, TypeSignature::IntType)?;
-                let mut buffer = [0; 16];
+            TypePrefix::Int8 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I8))?;
+                let mut buffer = [0; 1];
                 r.read_exact(&mut buffer)?;
-                Ok(Int(i128::from_be_bytes(buffer)))
+                Ok(Int8(i8::from_be_bytes(buffer)))
             }
-            TypePrefix::UInt => {
-                check_match!(expected_type, TypeSignature::UIntType)?;
+            TypePrefix::UInt8 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U8))?;
+                let mut buffer = [0; 1];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt8(u8::from_be_bytes(buffer)))
+            }
+            TypePrefix::Int16 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I16))?;
+                let mut buffer = [0; 2];
+                r.read_exact(&mut buffer)?;
+                Ok(Int16(i16::from_be_bytes(buffer)))
+            }
+            TypePrefix::UInt16 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U16))?;
+                let mut buffer = [0; 2];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt16(u16::from_be_bytes(buffer)))
+            }
+            TypePrefix::Int32 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I32))?;
+                let mut buffer = [0; 4];
+                r.read_exact(&mut buffer)?;
+                Ok(Int32(i32::from_be_bytes(buffer)))
+            }
+            TypePrefix::UInt32 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U32))?;
+                let mut buffer = [0; 4];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt32(u32::from_be_bytes(buffer)))
+            }
+            TypePrefix::Int64 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I64))?;
+                let mut buffer = [0; 8];
+                r.read_exact(&mut buffer)?;
+                Ok(Int64(i64::from_be_bytes(buffer)))
+            }
+            TypePrefix::UInt64 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U64))?;
+                let mut buffer = [0; 8];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt64(u64::from_be_bytes(buffer)))
+            }
+            TypePrefix::Int128 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I128))?;
                 let mut buffer = [0; 16];
                 r.read_exact(&mut buffer)?;
-                Ok(UInt(u128::from_be_bytes(buffer)))
+                Ok(Int128(i128::from_be_bytes(buffer)))
+            }
+            TypePrefix::UInt128 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U128))?;
+                let mut buffer = [0; 16];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt128(u128::from_be_bytes(buffer)))
+            }
+            TypePrefix::Int256 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I256))?;
+                let mut buffer = [0; 32];
+                r.read_exact(&mut buffer)?;
+                Ok(Int256(i256::from_be_bytes(buffer)))
+            },
+            TypePrefix::UInt256 => {
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U256))?;
+                let mut buffer = [0; 32];
+                r.read_exact(&mut buffer)?;
+                Ok(UInt256(u256::from_be_bytes(buffer)))
             }
             TypePrefix::Buffer => {
                 let mut buffer_len = [0; 4];
@@ -731,8 +824,18 @@ impl Value {
 
         w.write_all(&[TypePrefix::from(self) as u8])?;
         match self {
-            Int(value) => w.write_all(&value.to_be_bytes())?,
-            UInt(value) => w.write_all(&value.to_be_bytes())?,
+            Int8(value) => w.write_all(&value.to_be_bytes())?,
+            UInt8(value) => w.write_all(&value.to_be_bytes())?,
+            Int16(value) => w.write_all(&value.to_be_bytes())?,
+            UInt16(value) => w.write_all(&value.to_be_bytes())?,
+            Int32(value) => w.write_all(&value.to_be_bytes())?,
+            UInt32(value) => w.write_all(&value.to_be_bytes())?,
+            Int64(value) => w.write_all(&value.to_be_bytes())?,
+            UInt64(value) => w.write_all(&value.to_be_bytes())?,
+            Int128(value) => w.write_all(&value.to_be_bytes())?,
+            UInt128(value) => w.write_all(&value.to_be_bytes())?,
+            Int256(value) => w.write_all(&value.to_be_bytes())?,
+            UInt256(value) => w.write_all(&value.to_be_bytes())?,
             Principal(Standard(data)) => data.serialize_write(w)?,
             Principal(Contract(contract_identifier))
             | CallableContract(CallableData {
@@ -953,7 +1056,8 @@ mod tests {
     use super::SerializationError;
     use crate::vm::database::{ClarityDeserializable, ClaritySerializable};
     use crate::vm::errors::Error;
-    use crate::vm::types::TypeSignature::{BoolType, IntType};
+    use crate::vm::types::TypeSignature::{BoolType, IntegerType};
+    use crate::vm::types::IntegerSubtype;
     use crate::vm::ClarityVersion;
 
     #[template]
@@ -1015,9 +1119,9 @@ mod tests {
     #[apply(test_clarity_versions_serialization)]
     fn test_lists(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
         let list_list_int = Value::list_from(vec![Value::list_from(vec![
-            Value::Int(1),
-            Value::Int(2),
-            Value::Int(3),
+            Value::Int128(1),
+            Value::Int128(2),
+            Value::Int128(3),
         ])
         .unwrap()])
         .unwrap();
@@ -1111,58 +1215,58 @@ mod tests {
         test_deser_ser(Value::Bool(false));
         test_deser_ser(Value::Bool(true));
 
-        test_bad_expectation(Value::Bool(false), TypeSignature::IntType);
-        test_bad_expectation(Value::Bool(true), TypeSignature::IntType);
+        test_bad_expectation(Value::Bool(false), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::Bool(true), TypeSignature::IntegerType(IntegerSubtype::I128));
     }
 
     #[test]
     fn test_ints() {
-        test_deser_ser(Value::Int(0));
-        test_deser_ser(Value::Int(1));
-        test_deser_ser(Value::Int(-1));
-        test_deser_ser(Value::Int(i128::MAX));
-        test_deser_ser(Value::Int(i128::MIN));
+        test_deser_ser(Value::Int128(0));
+        test_deser_ser(Value::Int128(1));
+        test_deser_ser(Value::Int128(-1));
+        test_deser_ser(Value::Int128(i128::MAX));
+        test_deser_ser(Value::Int128(i128::MIN));
 
-        test_bad_expectation(Value::Int(1), TypeSignature::UIntType);
+        test_bad_expectation(Value::Int128(1), TypeSignature::IntegerType(IntegerSubtype::U128));
     }
 
     #[test]
     fn test_uints() {
-        test_deser_ser(Value::UInt(0));
-        test_deser_ser(Value::UInt(1));
-        test_deser_ser(Value::UInt(u128::MAX));
-        test_deser_ser(Value::UInt(u128::MIN));
+        test_deser_ser(Value::UInt128(0));
+        test_deser_ser(Value::UInt128(1));
+        test_deser_ser(Value::UInt128(u128::MAX));
+        test_deser_ser(Value::UInt128(u128::MIN));
 
-        test_bad_expectation(Value::UInt(1), TypeSignature::IntType);
+        test_bad_expectation(Value::UInt128(1), TypeSignature::IntegerType(IntegerSubtype::I128));
     }
 
     #[apply(test_clarity_versions_serialization)]
     fn test_opts(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
         test_deser_ser(Value::none());
-        test_deser_ser(Value::some(Value::Int(15)).unwrap());
+        test_deser_ser(Value::some(Value::Int128(15)).unwrap());
 
-        test_bad_expectation(Value::none(), TypeSignature::IntType);
-        test_bad_expectation(Value::some(Value::Int(15)).unwrap(), TypeSignature::IntType);
+        test_bad_expectation(Value::none(), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::some(Value::Int128(15)).unwrap(), TypeSignature::IntegerType(IntegerSubtype::I128));
         // bad expected _contained_ type
         test_bad_expectation(
-            Value::some(Value::Int(15)).unwrap(),
+            Value::some(Value::Int128(15)).unwrap(),
             TypeSignature::from_string("(optional uint)", version, epoch),
         );
     }
 
     #[apply(test_clarity_versions_serialization)]
     fn test_resp(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
-        test_deser_ser(Value::okay(Value::Int(15)).unwrap());
-        test_deser_ser(Value::error(Value::Int(15)).unwrap());
+        test_deser_ser(Value::okay(Value::Int128(15)).unwrap());
+        test_deser_ser(Value::error(Value::Int128(15)).unwrap());
 
         // Bad expected types.
-        test_bad_expectation(Value::okay(Value::Int(15)).unwrap(), TypeSignature::IntType);
+        test_bad_expectation(Value::okay(Value::Int128(15)).unwrap(), TypeSignature::IntegerType(IntegerSubtype::I128));
         test_bad_expectation(
-            Value::okay(Value::Int(15)).unwrap(),
+            Value::okay(Value::Int128(15)).unwrap(),
             TypeSignature::from_string("(response uint int)", version, epoch),
         );
         test_bad_expectation(
-            Value::error(Value::Int(15)).unwrap(),
+            Value::error(Value::Int128(15)).unwrap(),
             TypeSignature::from_string("(response int uint)", version, epoch),
         );
     }
@@ -1219,29 +1323,29 @@ mod tests {
     fn test_tuples() {
         let t_1 = Value::from(
             TupleData::from_data(vec![
-                ("a".into(), Value::Int(1)),
-                ("b".into(), Value::Int(1)),
+                ("a".into(), Value::Int128(1)),
+                ("b".into(), Value::Int128(1)),
             ])
             .unwrap(),
         );
         let t_0 = Value::from(
             TupleData::from_data(vec![
-                ("b".into(), Value::Int(1)),
-                ("a".into(), Value::Int(1)),
+                ("b".into(), Value::Int128(1)),
+                ("a".into(), Value::Int128(1)),
             ])
             .unwrap(),
         );
         let t_2 = Value::from(
             TupleData::from_data(vec![
-                ("a".into(), Value::Int(1)),
+                ("a".into(), Value::Int128(1)),
                 ("b".into(), Value::Bool(true)),
             ])
             .unwrap(),
         );
-        let t_3 = Value::from(TupleData::from_data(vec![("a".into(), Value::Int(1))]).unwrap());
+        let t_3 = Value::from(TupleData::from_data(vec![("a".into(), Value::Int128(1))]).unwrap());
         let t_4 = Value::from(
             TupleData::from_data(vec![
-                ("a".into(), Value::Int(1)),
+                ("a".into(), Value::Int128(1)),
                 ("c".into(), Value::Bool(true)),
             ])
             .unwrap(),
@@ -1295,9 +1399,9 @@ mod tests {
     fn test_vectors() {
         let tests = [
             ("1010", Err("Bad type prefix".into())),
-            ("0000000000000000000000000000000001", Ok(Value::Int(1))),
-            ("00ffffffffffffffffffffffffffffffff", Ok(Value::Int(-1))),
-            ("0100000000000000000000000000000001", Ok(Value::UInt(1))),
+            ("0000000000000000000000000000000001", Ok(Value::Int128(1))),
+            ("00ffffffffffffffffffffffffffffffff", Ok(Value::Int128(-1))),
+            ("0100000000000000000000000000000001", Ok(Value::UInt128(1))),
             ("0200000004deadbeef", Ok(Value::buff_from(vec![0xde, 0xad, 0xbe, 0xef])
                                       .unwrap())),
             ("03", Ok(Value::Bool(true))),
@@ -1314,13 +1418,13 @@ mod tests {
                         [0x11, 0xde, 0xad, 0xbe, 0xef, 0x11, 0xab, 0xab, 0xff, 0xff,
                          0x11, 0xde, 0xad, 0xbe, 0xef, 0x11, 0xab, 0xab, 0xff, 0xff]),
                     "abcd".into()).into())),
-            ("0700ffffffffffffffffffffffffffffffff", Ok(Value::okay(Value::Int(-1)).unwrap())),
-            ("0800ffffffffffffffffffffffffffffffff", Ok(Value::error(Value::Int(-1)).unwrap())),
+            ("0700ffffffffffffffffffffffffffffffff", Ok(Value::okay(Value::Int128(-1)).unwrap())),
+            ("0800ffffffffffffffffffffffffffffffff", Ok(Value::error(Value::Int128(-1)).unwrap())),
             ("09", Ok(Value::none())),
-            ("0a00ffffffffffffffffffffffffffffffff", Ok(Value::some(Value::Int(-1)).unwrap())),
+            ("0a00ffffffffffffffffffffffffffffffff", Ok(Value::some(Value::Int128(-1)).unwrap())),
             ("0b0000000400000000000000000000000000000000010000000000000000000000000000000002000000000000000000000000000000000300fffffffffffffffffffffffffffffffc",
              Ok(Value::list_from(vec![
-                 Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(-4)]).unwrap())),
+                 Value::Int128(1), Value::Int128(2), Value::Int128(3), Value::Int128(-4)]).unwrap())),
             ("0c000000020362617a0906666f6f62617203",
              Ok(Value::from(TupleData::from_data(vec![
                  ("baz".into(), Value::none()), ("foobar".into(), Value::Bool(true))]).unwrap())))

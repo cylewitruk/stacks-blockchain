@@ -1978,7 +1978,7 @@ mod test {
     use crate::vm::{
         callables::DefineType,
         types::{
-            signatures::CallableSubtype, FixedFunction, FunctionArg, FunctionType,
+            signatures::{CallableSubtype, IntegerSubtype}, FixedFunction, FunctionArg, FunctionType,
             StandardPrincipalData,
         },
     };
@@ -2077,18 +2077,18 @@ mod test {
         am2.add_token_transfer(&p2, t2.clone(), 1).unwrap();
 
         // test merging in a principal that _didn't_ have an entry in the parent
-        am2.add_asset_transfer(&p3, t3.clone(), Value::Int(10));
+        am2.add_asset_transfer(&p3, t3.clone(), Value::Int128(10));
 
         // test merging in an asset that _didn't_ have an entry in the parent
-        am1.add_asset_transfer(&p1, t5.clone(), Value::Int(0));
-        am2.add_asset_transfer(&p1, t3.clone(), Value::Int(1));
-        am2.add_asset_transfer(&p1, t3.clone(), Value::Int(0));
+        am1.add_asset_transfer(&p1, t5.clone(), Value::Int128(0));
+        am2.add_asset_transfer(&p1, t3.clone(), Value::Int128(1));
+        am2.add_asset_transfer(&p1, t3.clone(), Value::Int128(0));
 
         // test merging in an asset that _does_ have an entry in the parent
-        am1.add_asset_transfer(&p2, t3.clone(), Value::Int(2));
-        am1.add_asset_transfer(&p2, t3.clone(), Value::Int(5));
-        am2.add_asset_transfer(&p2, t3.clone(), Value::Int(3));
-        am2.add_asset_transfer(&p2, t3.clone(), Value::Int(4));
+        am1.add_asset_transfer(&p2, t3.clone(), Value::Int128(2));
+        am1.add_asset_transfer(&p2, t3.clone(), Value::Int128(5));
+        am2.add_asset_transfer(&p2, t3.clone(), Value::Int128(3));
+        am2.add_asset_transfer(&p2, t3.clone(), Value::Int128(4));
 
         // test merging in STX transfers
         am1.add_stx_transfer(&p1, 21).unwrap();
@@ -2113,20 +2113,20 @@ mod test {
         assert_eq!(
             table[&p2][&t3],
             AssetMapEntry::Asset(vec![
-                Value::Int(2),
-                Value::Int(5),
-                Value::Int(3),
-                Value::Int(4)
+                Value::Int128(2),
+                Value::Int128(5),
+                Value::Int128(3),
+                Value::Int128(4)
             ])
         );
 
         assert_eq!(
             table[&p1][&t3],
-            AssetMapEntry::Asset(vec![Value::Int(1), Value::Int(0)])
+            AssetMapEntry::Asset(vec![Value::Int128(1), Value::Int128(0)])
         );
-        assert_eq!(table[&p1][&t5], AssetMapEntry::Asset(vec![Value::Int(0)]));
+        assert_eq!(table[&p1][&t5], AssetMapEntry::Asset(vec![Value::Int128(0)]));
 
-        assert_eq!(table[&p3][&t3], AssetMapEntry::Asset(vec![Value::Int(10)]));
+        assert_eq!(table[&p3][&t3], AssetMapEntry::Asset(vec![Value::Int128(10)]));
 
         assert_eq!(table[&p1][&t6], AssetMapEntry::STX(20 + 21));
         assert_eq!(table[&p2][&t6], AssetMapEntry::STX(25 + 26));
@@ -2153,7 +2153,7 @@ mod test {
                     "a".into(),
                     TypeSignature::TraitReferenceType(trait_id.clone()),
                 )],
-                SymbolicExpression::atom_value(Value::Int(3)),
+                SymbolicExpression::atom_value(Value::Int128(3)),
                 DefineType::Public,
                 &"foo".into(),
                 "testing",
@@ -2166,8 +2166,8 @@ mod test {
             FunctionSignature {
                 args: vec![TypeSignature::TraitReferenceType(trait_id.clone())],
                 returns: TypeSignature::ResponseType(Box::new((
-                    TypeSignature::UIntType,
-                    TypeSignature::UIntType,
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
                 ))),
             },
         );

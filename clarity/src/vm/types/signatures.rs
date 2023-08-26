@@ -92,8 +92,7 @@ pub struct StringUTF8Length(u32);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TypeSignature {
     NoType,
-    IntType,
-    UIntType,
+    IntegerType(IntegerSubtype),
     BoolType,
     SequenceType(SequenceSubtype),
     PrincipalType,
@@ -115,6 +114,22 @@ pub enum TypeSignature {
     ListUnionType(HashSet<CallableSubtype>),
     // This is used only below epoch 2.1. It has been replaced by CallableType.
     TraitReferenceType(TraitIdentifier),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IntegerSubtype {
+    I8,
+    U8,
+    I16,
+    U16,
+    I32,
+    U32,
+    I64,
+    U64,
+    I128,
+    U128,
+    I256,
+    U256
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,8 +172,8 @@ pub enum CallableSubtype {
 }
 
 use self::TypeSignature::{
-    BoolType, CallableType, IntType, ListUnionType, NoType, OptionalType, PrincipalType,
-    ResponseType, SequenceType, TraitReferenceType, TupleType, UIntType,
+    BoolType, CallableType, IntegerType, ListUnionType, NoType, OptionalType, PrincipalType,
+    ResponseType, SequenceType, TraitReferenceType, TupleType,
 };
 
 lazy_static! {
@@ -1300,8 +1315,18 @@ impl TypeSignature {
     pub fn type_of(x: &Value) -> TypeSignature {
         match x {
             Value::Principal(_) => PrincipalType,
-            Value::Int(_v) => IntType,
-            Value::UInt(_v) => UIntType,
+            Value::Int8(_v) => TypeSignature::IntegerType(IntegerSubtype::I8),
+            Value::UInt8(_v) => TypeSignature::IntegerType(IntegerSubtype::U8),
+            Value::Int16(_) => TypeSignature::IntegerType(IntegerSubtype::I16),
+            Value::UInt16(_) => TypeSignature::IntegerType(IntegerSubtype::U16),
+            Value::Int32(_) => TypeSignature::IntegerType(IntegerSubtype::I32),
+            Value::UInt32(_) => TypeSignature::IntegerType(IntegerSubtype::U32),
+            Value::Int64(_) => TypeSignature::IntegerType(IntegerSubtype::I64),
+            Value::UInt64(_) => TypeSignature::IntegerType(IntegerSubtype::U64),
+            Value::Int128(_) => TypeSignature::IntegerType(IntegerSubtype::I128),
+            Value::UInt128(_) => TypeSignature::IntegerType(IntegerSubtype::U128),
+            Value::Int256(_) => TypeSignature::IntegerType(IntegerSubtype::I256),
+            Value::UInt256(_) => TypeSignature::IntegerType(IntegerSubtype::U256),
             Value::Bool(_v) => BoolType,
             Value::Tuple(v) => TupleType(v.type_signature.clone()),
             Value::Sequence(SequenceData::List(list_data)) => list_data.type_signature(),
@@ -1359,8 +1384,18 @@ impl TypeSignature {
 impl TypeSignature {
     fn parse_atom_type(typename: &str) -> Result<TypeSignature> {
         match typename {
-            "int" => Ok(TypeSignature::IntType),
-            "uint" => Ok(TypeSignature::UIntType),
+            "int" | "i128" => Ok(TypeSignature::IntegerType(IntegerSubtype::I128)),
+            "uint" | "u128" => Ok(TypeSignature::IntegerType(IntegerSubtype::U128)),
+            "i8" => Ok(TypeSignature::IntegerType(IntegerSubtype::I8)),
+            "u8" => Ok(TypeSignature::IntegerType(IntegerSubtype::U8)),
+            "i16" => Ok(TypeSignature::IntegerType(IntegerSubtype::I16)),
+            "u16" => Ok(TypeSignature::IntegerType(IntegerSubtype::U16)),
+            "i32" => Ok(TypeSignature::IntegerType(IntegerSubtype::I32)),
+            "u32" => Ok(TypeSignature::IntegerType(IntegerSubtype::U32)),
+            "i64" => Ok(TypeSignature::IntegerType(IntegerSubtype::I64)),
+            "u64" => Ok(TypeSignature::IntegerType(IntegerSubtype::U64)),
+            "i256" => Ok(TypeSignature::IntegerType(IntegerSubtype::I256)),
+            "u256" => Ok(TypeSignature::IntegerType(IntegerSubtype::U256)),
             "bool" => Ok(TypeSignature::BoolType),
             "principal" => Ok(TypeSignature::PrincipalType),
             _ => Err(CheckErrors::UnknownTypeName(typename.into())),
@@ -1378,7 +1413,7 @@ impl TypeSignature {
             return Err(CheckErrors::InvalidTypeDescription);
         }
 
-        if let SymbolicExpressionType::LiteralValue(Value::Int(max_len)) = &type_args[0].expr {
+        if let SymbolicExpressionType::LiteralValue(Value::Int128(max_len)) = &type_args[0].expr {
             let atomic_type_arg = &type_args[type_args.len() - 1];
             let entry_type = TypeSignature::parse_type_repr(epoch, atomic_type_arg, accounting)?;
             let max_len = u32::try_from(*max_len).map_err(|_| CheckErrors::ValueTooLarge)?;
@@ -1406,7 +1441,7 @@ impl TypeSignature {
         if type_args.len() != 1 {
             return Err(CheckErrors::InvalidTypeDescription);
         }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(buff_len)) = &type_args[0].expr {
+        if let SymbolicExpressionType::LiteralValue(Value::Int128(buff_len)) = &type_args[0].expr {
             BufferLength::try_from(*buff_len)
                 .map(|buff_len| SequenceType(SequenceSubtype::BufferType(buff_len)))
         } else {
@@ -1420,7 +1455,7 @@ impl TypeSignature {
         if type_args.len() != 1 {
             return Err(CheckErrors::InvalidTypeDescription);
         }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(utf8_len)) = &type_args[0].expr {
+        if let SymbolicExpressionType::LiteralValue(Value::Int128(utf8_len)) = &type_args[0].expr {
             StringUTF8Length::try_from(*utf8_len).map(|utf8_len| {
                 SequenceType(SequenceSubtype::StringType(StringSubtype::UTF8(utf8_len)))
             })
@@ -1435,7 +1470,7 @@ impl TypeSignature {
         if type_args.len() != 1 {
             return Err(CheckErrors::InvalidTypeDescription);
         }
-        if let SymbolicExpressionType::LiteralValue(Value::Int(buff_len)) = &type_args[0].expr {
+        if let SymbolicExpressionType::LiteralValue(Value::Int128(buff_len)) = &type_args[0].expr {
             BufferLength::try_from(*buff_len).map(|buff_len| {
                 SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(buff_len)))
             })
@@ -1622,8 +1657,7 @@ impl TypeSignature {
             | TraitReferenceType(_)
             | ListUnionType(_)
             | NoType
-            | IntType
-            | UIntType
+            | IntegerType(_)
             | BoolType
             | PrincipalType
             | SequenceType(SequenceSubtype::BufferType(_))
@@ -1648,6 +1682,7 @@ impl TypeSignature {
             // NoType's may be asked for their size at runtime --
             //  legal constructions like `(ok 1)` have NoType parts (if they have unknown error variant types).
             NoType => Some(1),
+            
             IntType => Some(16),
             UIntType => Some(16),
             BoolType => Some(1),
@@ -1686,7 +1721,7 @@ impl TypeSignature {
             // NoType's may be asked for their size at runtime --
             //  legal constructions like `(ok 1)` have NoType parts (if they have unknown error variant types).
             // These types all only use ~1 byte for their type enum
-            NoType | IntType | UIntType | BoolType | PrincipalType => Some(1),
+            NoType | IntegerType(_) | BoolType | PrincipalType => Some(1),
             // u32 length + type enum
             TupleType(tuple_sig) => tuple_sig.type_size(),
             SequenceType(SequenceSubtype::BufferType(_)) => Some(1 + 4),
@@ -2061,12 +2096,52 @@ mod test {
                 TypeSignature::NoType,
             ),
             (
-                (TypeSignature::NoType, TypeSignature::IntType),
-                TypeSignature::IntType,
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I8)),
+                TypeSignature::IntegerType(IntegerSubtype::I8),
             ),
             (
-                (TypeSignature::NoType, TypeSignature::UIntType),
-                TypeSignature::UIntType,
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U8)),
+                TypeSignature::IntegerType(IntegerSubtype::U8),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I16)),
+                TypeSignature::IntegerType(IntegerSubtype::I16),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U16)),
+                TypeSignature::IntegerType(IntegerSubtype::U16),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I32)),
+                TypeSignature::IntegerType(IntegerSubtype::I32),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U32)),
+                TypeSignature::IntegerType(IntegerSubtype::U32),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I64)),
+                TypeSignature::IntegerType(IntegerSubtype::I64),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U64)),
+                TypeSignature::IntegerType(IntegerSubtype::U64),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I128)),
+                TypeSignature::IntegerType(IntegerSubtype::I128),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U128)),
+                TypeSignature::IntegerType(IntegerSubtype::U128),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::I256)),
+                TypeSignature::IntegerType(IntegerSubtype::I256),
+            ),
+            (
+                (TypeSignature::NoType, TypeSignature::IntegerType(IntegerSubtype::U256)),
+                TypeSignature::IntegerType(IntegerSubtype::U256),
             ),
             (
                 (TypeSignature::NoType, TypeSignature::BoolType),
@@ -2079,9 +2154,86 @@ mod test {
             (
                 (
                     TypeSignature::NoType,
-                    TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I8), 42).unwrap(),
                 ),
-                TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I8), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U8), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U8), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I16), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I16), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U16), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U16), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I32), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I32), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U32), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U32), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I64), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I64), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U64), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U64), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U128), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U128), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I256), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I256), 42).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U256), 42).unwrap(),
+                ),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U256), 42).unwrap(),
             ),
             (
                 (
@@ -2102,29 +2254,249 @@ mod test {
                 (
                     TypeSignature::NoType,
                     TypeSignature::TupleType(
-                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I8))])
                             .unwrap(),
                     ),
                 ),
                 TypeSignature::TupleType(
-                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I8))])
                         .unwrap(),
                 ),
             ),
             (
                 (
                     TypeSignature::NoType,
-                    TypeSignature::new_option(TypeSignature::IntType).unwrap(),
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U8))])
+                            .unwrap(),
+                    ),
                 ),
-                TypeSignature::new_option(TypeSignature::IntType).unwrap(),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U8))])
+                        .unwrap(),
+                ),
             ),
             (
                 (
                     TypeSignature::NoType,
-                    TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I16))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I16))])
                         .unwrap(),
                 ),
-                TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U16))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U16))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I32))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I32))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U32))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U32))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I64))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I64))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U64))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U64))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U128))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U128))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I256))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I256))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::TupleType(
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U256))])
+                            .unwrap(),
+                    ),
+                ),
+                TypeSignature::TupleType(
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U256))])
+                        .unwrap(),
+                ),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I8)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I8)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U8)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U8)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I16)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I16)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U16)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U16)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I32)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I32)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U32)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U32)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I64)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I64)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U64)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U64)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I256)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I256)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U256)).unwrap(),
+                ),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::U256)).unwrap(),
+            ),
+            (
+                (
+                    TypeSignature::NoType,
+                    TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
+                        .unwrap(),
+                ),
+                TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
                     .unwrap(),
             ),
             (
@@ -2169,8 +2541,8 @@ mod test {
         }
 
         let simple_pairs = [
-            ((IntType, IntType), IntType),
-            ((UIntType, UIntType), UIntType),
+            ((IntegerType(IntegerSubtype::I128), IntegerType(IntegerSubtype::I128)), IntegerType(IntegerSubtype::I128)),
+            ((IntegerType(IntegerSubtype::U128), IntegerType(IntegerSubtype::U128)), IntegerType(IntegerSubtype::U128)),
             ((BoolType, BoolType), BoolType),
             (
                 (TypeSignature::max_buffer(), TypeSignature::max_buffer()),
@@ -2178,10 +2550,10 @@ mod test {
             ),
             (
                 (
-                    TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
-                    TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
                 ),
-                TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
             ),
             (
                 (
@@ -2204,34 +2576,34 @@ mod test {
             (
                 (
                     TypeSignature::TupleType(
-                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
                             .unwrap(),
                     ),
                     TypeSignature::TupleType(
-                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                        TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
                             .unwrap(),
                     ),
                 ),
                 TypeSignature::TupleType(
-                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
                         .unwrap(),
                 ),
             ),
             (
                 (
-                    TypeSignature::new_option(TypeSignature::IntType).unwrap(),
-                    TypeSignature::new_option(TypeSignature::IntType).unwrap(),
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
+                    TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
                 ),
-                TypeSignature::new_option(TypeSignature::IntType).unwrap(),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
             ),
             (
                 (
-                    TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+                    TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
                         .unwrap(),
-                    TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+                    TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
                         .unwrap(),
                 ),
-                TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+                TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
                     .unwrap(),
             ),
             (
@@ -2284,10 +2656,10 @@ mod test {
             ),
             (
                 (
-                    TypeSignature::list_of(TypeSignature::IntType, 17).unwrap(),
-                    TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 17).unwrap(),
+                    TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
                 ),
-                TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
             ),
             (
                 (
@@ -2428,15 +2800,15 @@ mod test {
         }
 
         let bad_pairs = [
-            (IntType, UIntType),
-            (BoolType, IntType),
+            (IntegerType(IntegerSubtype::I128), IntegerType(IntegerSubtype::U128)),
+            (BoolType, IntegerType(IntegerSubtype::I128)),
             (
                 TypeSignature::max_buffer(),
                 TypeSignature::max_string_ascii(),
             ),
             (
-                TypeSignature::list_of(TypeSignature::UIntType, 42).unwrap(),
-                TypeSignature::list_of(TypeSignature::IntType, 42).unwrap(),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::U128), 42).unwrap(),
+                TypeSignature::list_of(TypeSignature::IntegerType(IntegerSubtype::I128), 42).unwrap(),
             ),
             (
                 TypeSignature::min_string_utf8(),
@@ -2448,29 +2820,29 @@ mod test {
             ),
             (
                 TypeSignature::TupleType(
-                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntType)])
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::I128))])
                         .unwrap(),
                 ),
                 TypeSignature::TupleType(
-                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::UIntType)])
+                    TupleTypeSignature::try_from(vec![("a".into(), TypeSignature::IntegerType(IntegerSubtype::U128))])
                         .unwrap(),
                 ),
             ),
             (
-                TypeSignature::new_option(TypeSignature::IntType).unwrap(),
+                TypeSignature::new_option(TypeSignature::IntegerType(IntegerSubtype::I128)).unwrap(),
                 TypeSignature::new_option(TypeSignature::min_string_utf8()).unwrap(),
             ),
             (
-                TypeSignature::new_response(TypeSignature::IntType, TypeSignature::BoolType)
+                TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::BoolType)
                     .unwrap(),
-                TypeSignature::new_response(TypeSignature::BoolType, TypeSignature::IntType)
+                TypeSignature::new_response(TypeSignature::BoolType, TypeSignature::IntegerType(IntegerSubtype::I128))
                     .unwrap(),
             ),
             (
                 TypeSignature::CallableType(CallableSubtype::Principal(
                     QualifiedContractIdentifier::transient(),
                 )),
-                TypeSignature::IntType,
+                TypeSignature::IntegerType(IntegerSubtype::I128),
             ),
             (
                 TypeSignature::CallableType(CallableSubtype::Trait(TraitIdentifier {
@@ -2503,7 +2875,7 @@ mod test {
                     .unwrap(),
                 ),
                 TypeSignature::TupleType(
-                    TupleTypeSignature::try_from(vec![("b".into(), TypeSignature::UIntType)])
+                    TupleTypeSignature::try_from(vec![("b".into(), TypeSignature::IntegerType(IntegerSubtype::U128))])
                         .unwrap(),
                 ),
             ),

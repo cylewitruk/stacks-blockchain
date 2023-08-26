@@ -31,8 +31,8 @@ use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::database::{clarity_store::NullBackingStore, ClarityDatabase};
 use crate::vm::errors::{Error, InterpreterResult};
 use crate::vm::types::signatures::FunctionType::Fixed;
-use crate::vm::types::signatures::{FunctionSignature, TupleTypeSignature};
-use crate::vm::types::Value::UInt;
+use crate::vm::types::signatures::{FunctionSignature, TupleTypeSignature, IntegerSubtype};
+use crate::vm::types::Value::UInt128;
 use crate::vm::types::{
     FunctionArg, FunctionType, PrincipalData, QualifiedContractIdentifier, TupleData,
     TypeSignature, NONE,
@@ -54,11 +54,11 @@ pub const COSTS_3_NAME: &'static str = "costs-3";
 lazy_static! {
     static ref COST_TUPLE_TYPE_SIGNATURE: TypeSignature = TypeSignature::TupleType(
         TupleTypeSignature::try_from(vec![
-            ("runtime".into(), TypeSignature::UIntType),
-            ("write_length".into(), TypeSignature::UIntType),
-            ("write_count".into(), TypeSignature::UIntType),
-            ("read_count".into(), TypeSignature::UIntType),
-            ("read_length".into(), TypeSignature::UIntType),
+            ("runtime".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+            ("write_length".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+            ("write_count".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+            ("read_count".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+            ("read_length".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
         ])
         .expect("BUG: failed to construct type signature for cost tuple")
     );
@@ -328,7 +328,7 @@ fn load_state_summary(mainnet: bool, clarity_db: &mut ClarityDatabase) -> Result
 
     let last_processed_at = match clarity_db.get_value(
         "vm-costs::last-processed-at-height",
-        &TypeSignature::UIntType,
+        &TypeSignature::IntegerType(IntegerSubtype::U128),
     ) {
         Some(v) => u32::try_from(v.value.expect_u128()).expect("Block height overflowed u32"),
         None => return Ok(CostStateSummary::empty()),
@@ -358,7 +358,7 @@ fn store_state_summary(
 
     clarity_db.put(
         "vm-costs::last-processed-at-height",
-        &Value::UInt(block_height as u128),
+        &Value::UInt128(block_height as u128),
     );
     let serialized_summary =
         serde_json::to_string(&SerializedCostStateSummary::from(to_store.clone()))
@@ -388,9 +388,9 @@ fn load_cost_functions(
     apply_updates: bool,
 ) -> Result<CostStateSummary> {
     let last_processed_count = clarity_db
-        .get_value("vm-costs::last_processed_count", &TypeSignature::UIntType)
+        .get_value("vm-costs::last_processed_count", &TypeSignature::IntegerType(IntegerSubtype::U128))
         .map(|result| result.value)
-        .unwrap_or(Value::UInt(0))
+        .unwrap_or(Value::UInt128(0))
         .expect_u128();
     let cost_voting_contract = boot_code_id("cost-voting", mainnet);
     let confirmed_proposals_count = clarity_db
@@ -417,7 +417,7 @@ fn load_cost_functions(
                 &Value::from(
                     TupleData::from_data(vec![(
                         "confirmed-id".into(),
-                        Value::UInt(confirmed_proposal),
+                        Value::UInt128(confirmed_proposal),
                     )])
                     .expect("BUG: failed to construct simple tuple"),
                 ),
@@ -515,7 +515,7 @@ fn load_cost_functions(
                         continue;
                     }
                     if !cost_function_type.args.len() == 1
-                        || cost_function_type.args[0].signature != TypeSignature::UIntType
+                        || cost_function_type.args[0].signature != TypeSignature::IntegerType(IntegerSubtype::U128)
                     {
                         warn!("Confirmed cost proposal invalid: cost-function-name args should be length-1 and only uint";
                               "confirmed_proposal_id" => confirmed_proposal,
@@ -583,7 +583,7 @@ fn load_cost_functions(
                             continue;
                         }
                         for arg in &cost_func_type.args {
-                            if &arg.signature != &TypeSignature::UIntType {
+                            if &arg.signature != &TypeSignature::IntegerType(IntegerSubtype::U128) {
                                 warn!("Confirmed cost proposal invalid: contains non uint argument";
                                       "confirmed_proposal_id" => confirmed_proposal,
                                 );
@@ -616,7 +616,7 @@ fn load_cost_functions(
         store_state_summary(mainnet, clarity_db, &state_summary)?;
         clarity_db.put(
             "vm-costs::last_processed_count",
-            &Value::UInt(confirmed_proposals_count),
+            &Value::UInt128(confirmed_proposals_count),
         );
     }
 
@@ -830,11 +830,11 @@ fn parse_cost(
 
             match results {
                 (
-                    Some(UInt(write_length)),
-                    Some(UInt(write_count)),
-                    Some(UInt(runtime)),
-                    Some(UInt(read_length)),
-                    Some(UInt(read_count)),
+                    Some(UInt128(write_length)),
+                    Some(UInt128(write_count)),
+                    Some(UInt128(runtime)),
+                    Some(UInt128(read_length)),
+                    Some(UInt128(read_count)),
                 ) => Ok(ExecutionCost {
                     write_length: (*write_length as u64),
                     write_count: (*write_count as u64),
@@ -891,7 +891,7 @@ fn compute_cost(
     )];
 
     for input_size in input_sizes.iter() {
-        program.push(SymbolicExpression::atom_value(Value::UInt(
+        program.push(SymbolicExpression::atom_value(Value::UInt128(
             *input_size as u128,
         )));
     }

@@ -91,7 +91,7 @@ pub fn lookup_reserved_variable(
             NativeVariables::BlockHeight => {
                 runtime_cost(ClarityCostFunction::FetchVar, env, 1)?;
                 let block_height = env.global_context.database.get_current_block_height();
-                Ok(Some(Value::UInt(block_height as u128)))
+                Ok(Some(Value::UInt128(block_height as u128)))
             }
             NativeVariables::BurnBlockHeight => {
                 runtime_cost(ClarityCostFunction::FetchVar, env, 1)?;
@@ -99,7 +99,7 @@ pub fn lookup_reserved_variable(
                     .global_context
                     .database
                     .get_current_burnchain_block_height();
-                Ok(Some(Value::UInt(burn_block_height as u128)))
+                Ok(Some(Value::UInt128(burn_block_height as u128)))
             }
             NativeVariables::NativeNone => Ok(Some(Value::none())),
             NativeVariables::NativeTrue => Ok(Some(Value::Bool(true))),
@@ -107,7 +107,7 @@ pub fn lookup_reserved_variable(
             NativeVariables::TotalLiquidMicroSTX => {
                 runtime_cost(ClarityCostFunction::FetchVar, env, 1)?;
                 let liq = env.global_context.database.get_total_liquid_ustx();
-                Ok(Some(Value::UInt(liq)))
+                Ok(Some(Value::UInt128(liq)))
             }
             NativeVariables::Regtest => {
                 let reg = env.global_context.database.is_in_regtest();
@@ -119,7 +119,7 @@ pub fn lookup_reserved_variable(
             }
             NativeVariables::ChainId => {
                 let chain_id = env.global_context.chain_id;
-                Ok(Some(Value::UInt(chain_id.into())))
+                Ok(Some(Value::UInt128(chain_id.into())))
             }
         }
     } else {

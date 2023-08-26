@@ -30,7 +30,7 @@ use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{cost_functions, runtime_cost};
 use crate::vm::errors::{check_argument_count, Error, InterpreterResult as Result};
 use crate::vm::representations::{ClarityName, Span, SymbolicExpression};
-use crate::vm::types::Value::UInt;
+use crate::vm::types::Value::{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128, Int256, UInt256};
 use crate::vm::types::{
     CallableData, FunctionType, ListData, ListTypeData, OptionalData, PrincipalData,
     QualifiedContractIdentifier, ResponseData, SequenceData, SequenceSubtype, TraitIdentifier,
@@ -502,7 +502,7 @@ fn clarity2_implicit_cast(type_sig: &TypeSignature, value: &Value) -> Result<Val
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::vm::types::StandardPrincipalData;
+    use crate::vm::types::{StandardPrincipalData, signatures::IntegerSubtype};
 
     #[test]
     fn test_implicit_cast() {
@@ -551,7 +551,7 @@ mod test {
 
         // (ok principal) -> (ok <trait>)
         let response_ok_ty =
-            TypeSignature::new_response(trait_ty.clone(), TypeSignature::UIntType).unwrap();
+            TypeSignature::new_response(trait_ty.clone(), TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap();
         let response_contract = Value::okay(contract.clone()).unwrap();
         let cast_response = clarity2_implicit_cast(&response_ok_ty, &response_contract).unwrap();
         let cast_trait = cast_response.expect_result_ok().expect_callable();
@@ -560,7 +560,7 @@ mod test {
 
         // (err principal) -> (err <trait>)
         let response_err_ty =
-            TypeSignature::new_response(TypeSignature::UIntType, trait_ty.clone()).unwrap();
+            TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::U128), trait_ty.clone()).unwrap();
         let response_contract = Value::error(contract.clone()).unwrap();
         let cast_response = clarity2_implicit_cast(&response_err_ty, &response_contract).unwrap();
         let cast_trait = cast_response.expect_result_err().expect_callable();
@@ -710,7 +710,7 @@ mod test {
                 "a".into(),
                 TypeSignature::TraitReferenceType(trait_id.clone()),
             )],
-            SymbolicExpression::atom_value(Value::Int(3)),
+            SymbolicExpression::atom_value(Value::Int128(3)),
             DefineType::Public,
             &"foo".into(),
             "testing",

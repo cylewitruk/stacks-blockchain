@@ -22,6 +22,7 @@ use std::convert::{TryFrom, TryInto};
 use std::{char, str};
 use std::{cmp, fmt};
 
+use ethnum::{i256, u256};
 use regex::Regex;
 use stacks_common::address::c32;
 use stacks_common::types::chainstate::StacksAddress;
@@ -34,6 +35,7 @@ use crate::vm::errors::{
 use crate::vm::representations::{
     ClarityName, ContractName, SymbolicExpression, SymbolicExpressionType,
 };
+use crate::vm::types::signatures::IntegerSubtype;
 pub use crate::vm::types::signatures::{
     parse_name_type_pairs, AssetIdentifier, BufferLength, FixedFunction, FunctionArg,
     FunctionSignature, FunctionType, ListTypeData, SequenceSubtype, StringSubtype,
@@ -228,8 +230,18 @@ impl TraitIdentifier {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Value {
-    Int(i128),
-    UInt(u128),
+    Int8(i8),
+    UInt8(u8),
+    Int16(i16),
+    UInt16(u16),
+    Int32(i32),
+    UInt32(u32),
+    Int64(i64),
+    UInt64(u64),
+    Int128(i128),
+    UInt128(u128),
+    Int256(i256),
+    UInt256(u256),
     Bool(bool),
     Sequence(SequenceData),
     Principal(PrincipalData),
@@ -741,7 +753,7 @@ impl BlockInfoProperty {
     pub fn type_result(&self) -> TypeSignature {
         use self::BlockInfoProperty::*;
         match self {
-            Time | MinerSpendWinner | MinerSpendTotal | BlockReward => TypeSignature::UIntType,
+            Time | MinerSpendWinner | MinerSpendTotal | BlockReward => TypeSignature::IntegerType(IntegerSubtype::U128),
             IdentityHeaderHash | VrfSeed | HeaderHash | BurnchainHeaderHash => BUFF_32.clone(),
             MinerAddress => TypeSignature::PrincipalType,
         }
@@ -781,7 +793,7 @@ impl BurnBlockInfoProperty {
                     )
                     .expect("FATAL: bad list type signature"),
                 ),
-                ("payout".into(), TypeSignature::UIntType),
+                ("payout".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
             ])
             .expect("FATAL: bad type signature for pox addr")
             .into(),
@@ -830,7 +842,7 @@ impl Value {
     pub fn err_uint(ecode: u128) -> Value {
         Value::Response(ResponseData {
             committed: false,
-            data: Box::new(Value::UInt(ecode)),
+            data: Box::new(Value::UInt128(ecode)),
         })
     }
 
@@ -1016,7 +1028,7 @@ impl Value {
     }
 
     pub fn expect_u128(self) -> u128 {
-        if let Value::UInt(inner) = self {
+        if let Value::UInt128(inner) = self {
             inner
         } else {
             error!("Value '{:?}' is not a u128", &self);
@@ -1025,7 +1037,7 @@ impl Value {
     }
 
     pub fn expect_i128(self) -> i128 {
-        if let Value::Int(inner) = self {
+        if let Value::Int128(inner) = self {
             inner
         } else {
             error!("Value '{:?}' is not an i128", &self);
@@ -1250,8 +1262,18 @@ impl fmt::Debug for BuffData {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Int(int) => write!(f, "{}", int),
-            Value::UInt(int) => write!(f, "u{}", int),
+            Value::Int8(int) => write!(f, "{}i8", int),
+            Value::UInt8(int) => write!(f, "{}u8", int),
+            Value::Int16(int) => write!(f, "{}i16", int),
+            Value::UInt16(int) => write!(f, "{}u16", int),
+            Value::Int32(int) => write!(f, "{}i32", int),
+            Value::UInt32(int) => write!(f, "{}u32", int),
+            Value::Int64(int) => write!(f, "{}i64", int),
+            Value::UInt64(int) => write!(f, "{}u64", int),
+            Value::Int128(int) => write!(f, "{}i128", int),
+            Value::UInt128(int) => write!(f, "{}u128", int),
+            Value::Int256(int) => write!(f, "{}i256", int),
+            Value::UInt256(int) => write!(f, "{}u256", int),
             Value::Bool(boolean) => write!(f, "{}", boolean),
             Value::Tuple(data) => write!(f, "{}", data),
             Value::Principal(principal_data) => write!(f, "{}", principal_data),
@@ -1553,13 +1575,13 @@ mod test {
         assert_eq!(
             Value::list_with_type(
                 &StacksEpochId::latest(),
-                vec![Value::Int(5), Value::Int(2)],
+                vec![Value::Int128(5), Value::Int128(2)],
                 ListTypeData::new_list(TypeSignature::BoolType, 3).unwrap()
             ),
             Err(InterpreterError::FailureConstructingListWithType.into())
         );
         assert_eq!(
-            ListTypeData::new_list(TypeSignature::IntType, MAX_VALUE_SIZE as u32),
+            ListTypeData::new_list(TypeSignature::IntegerType(IntegerSubtype::I128), MAX_VALUE_SIZE as u32),
             Err(CheckErrors::ValueTooLarge)
         );
 
@@ -1597,7 +1619,7 @@ mod test {
                         Value::some(Value::some(Value::some(Value::some(Value::some(
                             Value::some(Value::some(Value::some(Value::some(Value::some(
                                 Value::some(Value::some(Value::some(Value::some(
-                                    Value::some(Value::some(Value::Int(1))?)?,
+                                    Value::some(Value::some(Value::Int128(1))?)?,
                                 )?)?)?)?,
                             )?)?)?)?)?,
                         )?)?)?)?)?,
@@ -1644,13 +1666,13 @@ mod test {
 
     #[test]
     fn simple_size_test() {
-        assert_eq!(Value::Int(10).size(), 16);
+        assert_eq!(Value::Int128(10).size(), 16);
     }
 
     #[test]
     fn simple_tuple_get_test() {
-        let t = TupleData::from_data(vec![("abc".into(), Value::Int(0))]).unwrap();
-        assert_eq!(t.get("abc"), Ok(&Value::Int(0)));
+        let t = TupleData::from_data(vec![("abc".into(), Value::Int128(0))]).unwrap();
+        assert_eq!(t.get("abc"), Ok(&Value::Int128(0)));
         // should error!
         t.get("abcd").unwrap_err();
     }
@@ -1660,20 +1682,20 @@ mod test {
         assert_eq!(
             &format!(
                 "{}",
-                Value::list_from(vec![Value::Int(10), Value::Int(5)]).unwrap()
+                Value::list_from(vec![Value::Int128(10), Value::Int128(5)]).unwrap()
             ),
             "(10 5)"
         );
         assert_eq!(
-            &format!("{}", Value::some(Value::Int(10)).unwrap()),
+            &format!("{}", Value::some(Value::Int128(10)).unwrap()),
             "(some 10)"
         );
         assert_eq!(
-            &format!("{}", Value::okay(Value::Int(10)).unwrap()),
+            &format!("{}", Value::okay(Value::Int128(10)).unwrap()),
             "(ok 10)"
         );
         assert_eq!(
-            &format!("{}", Value::error(Value::Int(10)).unwrap()),
+            &format!("{}", Value::error(Value::Int128(10)).unwrap()),
             "(err 10)"
         );
         assert_eq!(&format!("{}", Value::none()), "none");
@@ -1693,7 +1715,7 @@ mod test {
         assert_eq!(
             &format!(
                 "{}",
-                Value::from(TupleData::from_data(vec![("a".into(), Value::Int(2))]).unwrap())
+                Value::from(TupleData::from_data(vec![("a".into(), Value::Int128(2))]).unwrap())
             ),
             "(tuple (a 2))"
         );
