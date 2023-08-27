@@ -35,10 +35,10 @@ use crate::vm::representations::SymbolicExpressionType::{Atom, List};
 use crate::vm::representations::{ClarityName, SymbolicExpression, SymbolicExpressionType};
 use crate::vm::types::StacksAddressExtensions;
 use crate::vm::types::{
-    BuffData, CharType, PrincipalData, ResponseData, SequenceData, TypeSignature, IntegerSubtype, Value, BUFF_32,
+    BuffData, CharType, PrincipalData, ResponseData, SequenceData, TypeSignature, Value, BUFF_32,
     BUFF_33, BUFF_65,
 };
-use crate::vm::{eval, ClarityVersion, Environment, LocalContext};
+use crate::vm::{eval, ClarityVersion, Environment, LocalContext, IntegerSubtype};
 
 macro_rules! native_hash_func {
     ($name:ident, $module:ty) => {
@@ -59,8 +59,18 @@ macro_rules! native_hash_func {
                 Value::Sequence(SequenceData::Buffer(value)) => Ok(value.data),
                 _ => Err(CheckErrors::UnionTypeValueError(
                     vec![
-                        TypeSignature::IntegerType(IntegerSubtype::I8),
-                        TypeSignature::UIntType,
+                        TypeSignature::IntegerType(IntegerSubtype::I8), 
+                        TypeSignature::IntegerType(IntegerSubtype::U8),
+                        TypeSignature::IntegerType(IntegerSubtype::I16),
+                        TypeSignature::IntegerType(IntegerSubtype::U16),
+                        TypeSignature::IntegerType(IntegerSubtype::I32),
+                        TypeSignature::IntegerType(IntegerSubtype::U32),
+                        TypeSignature::IntegerType(IntegerSubtype::I64),
+                        TypeSignature::IntegerType(IntegerSubtype::U64),
+                        TypeSignature::IntegerType(IntegerSubtype::I128),
+                        TypeSignature::IntegerType(IntegerSubtype::U128),
+                        TypeSignature::IntegerType(IntegerSubtype::I256),
+                        TypeSignature::IntegerType(IntegerSubtype::U256),
                         TypeSignature::max_buffer(),
                     ],
                     input,

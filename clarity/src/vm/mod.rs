@@ -80,6 +80,7 @@ pub use crate::vm::representations::{
     ClarityName, ContractName, SymbolicExpression, SymbolicExpressionType,
 };
 pub use crate::vm::types::Value;
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     PrincipalData, QualifiedContractIdentifier, TraitIdentifier, TypeSignature,
 };
@@ -429,7 +430,7 @@ pub fn eval_all(
                     runtime_cost(ClarityCostFunction::CreateFt, global_context, 0)?;
                     contract_context.persisted_names.insert(name.clone());
 
-                    global_context.add_memory(TypeSignature::UIntType.type_size()
+                    global_context.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).type_size()
                                               .expect("type size should be realizable") as u64)?;
 
                     let data_type = global_context.database.create_fungible_token(&contract_context.contract_identifier, &name, &total_supply);
@@ -591,6 +592,7 @@ mod test {
     use crate::vm::errors::RuntimeErrorType;
     use crate::vm::eval;
     use crate::vm::execute;
+    use crate::vm::types::signatures::IntegerSubtype;
     use crate::vm::types::{QualifiedContractIdentifier, TypeSignature};
     use crate::vm::{
         CallStack, ContractContext, Environment, GlobalContext, LocalContext, SymbolicExpression,
@@ -612,11 +614,11 @@ mod test {
 
         let func_body = SymbolicExpression::list(Box::new([
             SymbolicExpression::atom("+".into()),
-            SymbolicExpression::atom_value(Value::Int(5)),
+            SymbolicExpression::atom_value(Value::Int128(5)),
             SymbolicExpression::atom("x".into()),
         ]));
 
-        let func_args = vec![("x".into(), TypeSignature::IntType)];
+        let func_args = vec![("x".into(), TypeSignature::IntegerType(IntegerSubtype::I128))];
         let user_function = DefinedFunction::new(
             func_args,
             func_body,
@@ -642,7 +644,7 @@ mod test {
 
         contract_context
             .variables
-            .insert("a".into(), Value::Int(59));
+            .insert("a".into(), Value::Int128(59));
         contract_context
             .functions
             .insert("do_work".into(), user_function);
@@ -656,6 +658,6 @@ mod test {
             None,
             None,
         );
-        assert_eq!(Ok(Value::Int(64)), eval(&content[0], &mut env, &context));
+        assert_eq!(Ok(Value::Int128(64)), eval(&content[0], &mut env, &context));
     }
 }

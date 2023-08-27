@@ -313,7 +313,7 @@ fn inner_lex(input: &str, max_nesting: u64) -> ParseResult<Vec<(LexItem, u32, u3
                     TokenType::UIntLiteral => {
                         let str_value = get_value_or_err(current_slice, captures)?;
                         let value = match u128::from_str_radix(&str_value, 10) {
-                            Ok(parsed) => Ok(Value::UInt(parsed)),
+                            Ok(parsed) => Ok(Value::UInt128(parsed)),
                             Err(_e) => Err(ParseError::new(ParseErrors::FailedParsingIntValue(
                                 str_value.clone(),
                             ))),
@@ -323,7 +323,7 @@ fn inner_lex(input: &str, max_nesting: u64) -> ParseResult<Vec<(LexItem, u32, u3
                     TokenType::IntLiteral => {
                         let str_value = get_value_or_err(current_slice, captures)?;
                         let value = match i128::from_str_radix(&str_value, 10) {
-                            Ok(parsed) => Ok(Value::Int(parsed)),
+                            Ok(parsed) => Ok(Value::Int128(parsed)),
                             Err(_e) => Err(ParseError::new(ParseErrors::FailedParsingIntValue(
                                 str_value.clone(),
                             ))),
@@ -825,7 +825,7 @@ mod test {
                                 13,
                                 Box::new([
                                     make_atom("x", 1, 10, 1, 10),
-                                    make_atom_value(Value::Int(1), 1, 12, 1, 12),
+                                    make_atom_value(Value::Int128(1), 1, 12, 1, 12),
                                 ]),
                             ),
                             make_list(
@@ -835,7 +835,7 @@ mod test {
                                 19,
                                 Box::new([
                                     make_atom("y", 1, 16, 1, 16),
-                                    make_atom_value(Value::Int(2), 1, 18, 1, 18),
+                                    make_atom_value(Value::Int128(2), 1, 18, 1, 18),
                                 ]),
                             ),
                         ]),
@@ -867,7 +867,7 @@ mod test {
                                             19,
                                             Box::new([
                                                 make_atom("x", 4, 16, 4, 16),
-                                                make_atom_value(Value::Int(3), 4, 18, 4, 18),
+                                                make_atom_value(Value::Int128(3), 4, 18, 4, 18),
                                             ]),
                                         )]),
                                     ),
@@ -903,7 +903,7 @@ mod test {
         let input = "        -1234
         (- 12 34)";
         let program = vec![
-            make_atom_value(Value::Int(-1234), 1, 9, 1, 13),
+            make_atom_value(Value::Int128(-1234), 1, 9, 1, 13),
             make_list(
                 2,
                 9,
@@ -911,8 +911,8 @@ mod test {
                 17,
                 Box::new([
                     make_atom("-", 2, 10, 2, 10),
-                    make_atom_value(Value::Int(12), 2, 12, 2, 13),
-                    make_atom_value(Value::Int(34), 2, 15, 2, 16),
+                    make_atom_value(Value::Int128(12), 2, 12, 2, 13),
+                    make_atom_value(Value::Int128(34), 2, 15, 2, 16),
                 ]),
             ),
         ];
@@ -935,7 +935,7 @@ mod test {
             11,
             Box::new([
                 make_atom("id", 1, 2, 1, 3),
-                make_atom_value(Value::Int(1337), 1, 6, 1, 9),
+                make_atom_value(Value::Int128(1337), 1, 6, 1, 9),
             ]),
         )];
         let parsed = ast::parser::v1::parse(&input);

@@ -66,7 +66,7 @@ pub fn is_committed(v: &Value) -> bool {
 pub fn is_err_code(v: &Value, e: u128) -> bool {
     eprintln!("is_err_code?: {}", v);
     match v {
-        Value::Response(ref data) => !data.committed && *data.data == Value::UInt(e),
+        Value::Response(ref data) => !data.committed && *data.data == Value::UInt128(e),
         _ => false,
     }
 }
@@ -74,7 +74,7 @@ pub fn is_err_code(v: &Value, e: u128) -> bool {
 pub fn is_err_code_i128(v: &Value, e: i128) -> bool {
     eprintln!("is_err_code?: {}", v);
     match v {
-        Value::Response(ref data) => !data.committed && *data.data == Value::Int(e),
+        Value::Response(ref data) => !data.committed && *data.data == Value::Int128(e),
         _ => false,
     }
 }

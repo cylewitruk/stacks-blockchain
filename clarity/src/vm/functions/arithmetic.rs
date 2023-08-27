@@ -17,6 +17,7 @@
 use std::cmp;
 use std::convert::TryFrom;
 
+use ethnum::{i256, u256};
 use integer_sqrt::IntegerSquareRoot;
 
 use crate::vm::costs::cost_functions::ClarityCostFunction;
@@ -27,26 +28,98 @@ use crate::vm::types::{signatures::ListTypeData, ListData, TypeSignature::BoolTy
 use crate::vm::types::{
     ASCIIData, BuffData, CharType, SequenceData, TypeSignature, UTF8Data, Value,
 };
+use crate::vm::IntegerSubtype;
 use crate::vm::version::ClarityVersion;
 use crate::vm::{apply, eval, lookup_function, CallableType, Environment, LocalContext};
 
+struct I8Ops();
+struct U8Ops();
+struct I16Ops();
+struct U16Ops();
+struct I32Ops();
+struct U32Ops();
+struct I64Ops();
+struct U64Ops();
 struct U128Ops();
 struct I128Ops();
+struct I256Ops();
+struct U256Ops();
 struct ASCIIOps();
 struct UTF8Ops();
 struct BuffOps();
 
-impl U128Ops {
-    fn make_value(x: u128) -> InterpreterResult<Value> {
-        Ok(Value::UInt(x))
+impl I8Ops {
+    fn make_value(x: i8) -> InterpreterResult<Value> {
+        Ok(Value::Int8(x))
+    }
+}
+
+impl U8Ops {
+    fn make_value(x: u8) -> InterpreterResult<Value> {
+        Ok(Value::UInt8(x))
+    }
+}
+
+impl I16Ops {
+    fn make_value(x: i16) -> InterpreterResult<Value> {
+        Ok(Value::Int16(x))
+    }
+}
+
+impl U16Ops {
+    fn make_value(x: u16) -> InterpreterResult<Value> {
+        Ok(Value::UInt16(x))
+    }
+}
+
+impl I32Ops {
+    fn make_value(x: i32) -> InterpreterResult<Value> {
+        Ok(Value::Int32(x))
+    }
+}
+
+impl U32Ops {
+    fn make_value(x: u32) -> InterpreterResult<Value> {
+        Ok(Value::UInt32(x))
+    }
+}
+
+impl I64Ops {
+    fn make_value(x: i64) -> InterpreterResult<Value> {
+        Ok(Value::Int64(x))
+    }
+}
+
+impl U64Ops {
+    fn make_value(x: u64) -> InterpreterResult<Value> {
+        Ok(Value::UInt64(x))
     }
 }
 
 impl I128Ops {
     fn make_value(x: i128) -> InterpreterResult<Value> {
-        Ok(Value::Int(x))
+        Ok(Value::Int128(x))
     }
 }
+
+impl U128Ops {
+    fn make_value(x: u128) -> InterpreterResult<Value> {
+        Ok(Value::UInt128(x))
+    }
+}
+
+impl I256Ops {
+    fn make_value(x: i256) -> InterpreterResult<Value> {
+        Ok(Value::Int256(x))
+    }
+}
+
+impl U256Ops {
+    fn make_value(x: u256) -> InterpreterResult<Value> {
+        Ok(Value::UInt256(x))
+    }
+}
+
 impl ASCIIOps {
     fn make_value(x: Vec<u8>) -> InterpreterResult<Value> {
         Ok(Value::Sequence(SequenceData::String(CharType::ASCII(
@@ -74,10 +147,33 @@ impl BuffOps {
 macro_rules! type_force_binary_arithmetic {
     ($function: ident, $x: expr, $y: expr) => {{
         match ($x, $y) {
-            (Value::Int(x), Value::Int(y)) => I128Ops::$function(x, y),
-            (Value::UInt(x), Value::UInt(y)) => U128Ops::$function(x, y),
+            (Value::Int8(x), Value::Int8(y)) => I8Ops::$function(x, y),
+            (Value::UInt8(x), Value::UInt8(y)) => U8Ops::$function(x, y),
+            (Value::Int16(x), Value::Int16(y)) => I16Ops::$function(x, y),
+            (Value::UInt16(x), Value::UInt16(y)) => U16Ops::$function(x, y),
+            (Value::Int32(x), Value::Int32(y)) => I32Ops::$function(x, y),
+            (Value::UInt32(x), Value::UInt32(y)) => U32Ops::$function(x, y),
+            (Value::Int64(x), Value::Int64(y)) => I64Ops::$function(x, y),
+            (Value::UInt64(x), Value::UInt64(y)) => U64Ops::$function(x, y),
+            (Value::Int128(x), Value::Int128(y)) => I128Ops::$function(x, y),
+            (Value::UInt128(x), Value::UInt128(y)) => U128Ops::$function(x, y),
+            (Value::Int256(x), Value::Int256(y)) => I256Ops::$function(x, y),
+            (Value::UInt256(x), Value::UInt256(y)) => U256Ops::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
-                vec![TypeSignature::IntType, TypeSignature::UIntType],
+                vec![
+                    TypeSignature::IntegerType(IntegerSubtype::I8), 
+                    TypeSignature::IntegerType(IntegerSubtype::U8),
+                    TypeSignature::IntegerType(IntegerSubtype::I16),
+                    TypeSignature::IntegerType(IntegerSubtype::U16),
+                    TypeSignature::IntegerType(IntegerSubtype::I32),
+                    TypeSignature::IntegerType(IntegerSubtype::U32),
+                    TypeSignature::IntegerType(IntegerSubtype::I64),
+                    TypeSignature::IntegerType(IntegerSubtype::U64),
+                    TypeSignature::IntegerType(IntegerSubtype::I128),
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::IntegerType(IntegerSubtype::I256),
+                    TypeSignature::IntegerType(IntegerSubtype::U256)
+                ],
                 x,
             )
             .into()),
@@ -85,14 +181,14 @@ macro_rules! type_force_binary_arithmetic {
     }};
 }
 
-// The originally supported comparable types in Clarity1 were Int and UInt.
+// The originally supported comparable types in Clarity1 were Int and UInt (128-bits).
 macro_rules! type_force_binary_comparison_v1 {
     ($function: ident, $x: expr, $y: expr) => {{
         match ($x, $y) {
-            (Value::Int(x), Value::Int(y)) => I128Ops::$function(x, y),
-            (Value::UInt(x), Value::UInt(y)) => U128Ops::$function(x, y),
+            (Value::Int128(x), Value::Int128(y)) => I128Ops::$function(x, y),
+            (Value::UInt128(x), Value::UInt128(y)) => U128Ops::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
-                vec![TypeSignature::IntType, TypeSignature::UIntType],
+                vec![TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::IntegerType(IntegerSubtype::U128)],
                 x,
             )
             .into()),
@@ -105,8 +201,18 @@ macro_rules! type_force_binary_comparison_v1 {
 macro_rules! type_force_binary_comparison_v2 {
     ($function: ident, $x: expr, $y: expr) => {{
         match ($x, $y) {
-            (Value::Int(x), Value::Int(y)) => I128Ops::$function(x, y),
-            (Value::UInt(x), Value::UInt(y)) => U128Ops::$function(x, y),
+            (Value::Int8(x), Value::Int8(y)) => I8Ops::$function(x, y),
+            (Value::UInt8(x), Value::UInt8(y)) => U8Ops::$function(x, y),
+            (Value::Int16(x), Value::Int16(y)) => I16Ops::$function(x, y),
+            (Value::UInt16(x), Value::UInt16(y)) => U16Ops::$function(x, y),
+            (Value::Int32(x), Value::Int32(y)) => I32Ops::$function(x, y),
+            (Value::UInt32(x), Value::UInt32(y)) => U32Ops::$function(x, y),
+            (Value::Int64(x), Value::Int64(y)) => I64Ops::$function(x, y),
+            (Value::UInt64(x), Value::UInt64(y)) => U64Ops::$function(x, y),
+            (Value::Int128(x), Value::Int128(y)) => I128Ops::$function(x, y),
+            (Value::UInt128(x), Value::UInt128(y)) => U128Ops::$function(x, y),
+            (Value::Int256(x), Value::Int256(y)) => I256Ops::$function(x, y),
+            (Value::UInt256(x), Value::UInt256(y)) => U256Ops::$function(x, y),
             (
                 Value::Sequence(SequenceData::String(CharType::ASCII(ASCIIData { data: x }))),
                 Value::Sequence(SequenceData::String(CharType::ASCII(ASCIIData { data: y }))),
@@ -121,8 +227,18 @@ macro_rules! type_force_binary_comparison_v2 {
             ) => BuffOps::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
                 vec![
-                    TypeSignature::IntType,
-                    TypeSignature::UIntType,
+                    TypeSignature::IntegerType(IntegerSubtype::I8), 
+                    TypeSignature::IntegerType(IntegerSubtype::U8),
+                    TypeSignature::IntegerType(IntegerSubtype::I16),
+                    TypeSignature::IntegerType(IntegerSubtype::U16),
+                    TypeSignature::IntegerType(IntegerSubtype::I32),
+                    TypeSignature::IntegerType(IntegerSubtype::U32),
+                    TypeSignature::IntegerType(IntegerSubtype::I64),
+                    TypeSignature::IntegerType(IntegerSubtype::U64),
+                    TypeSignature::IntegerType(IntegerSubtype::I128),
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::IntegerType(IntegerSubtype::I256),
+                    TypeSignature::IntegerType(IntegerSubtype::U256),
                     TypeSignature::max_string_ascii(),
                     TypeSignature::max_string_utf8(),
                     TypeSignature::max_buffer(),
@@ -137,10 +253,33 @@ macro_rules! type_force_binary_comparison_v2 {
 macro_rules! type_force_unary_arithmetic {
     ($function: ident, $x: expr) => {{
         match $x {
-            Value::Int(x) => I128Ops::$function(x),
-            Value::UInt(x) => U128Ops::$function(x),
+            Value::Int8(x) => I8Ops::$function(x),
+            Value::UInt8(x) => U8Ops::$function(x),
+            Value::Int16(x) => I16Ops::$function(x),
+            Value::UInt16(x) => U16Ops::$function(x),
+            Value::Int32(x) => I32Ops::$function(x),
+            Value::UInt32(x) => U32Ops::$function(x),
+            Value::Int64(x) => I64Ops::$function(x),
+            Value::UInt64(x) => U64Ops::$function(x),
+            Value::Int128(x) => I128Ops::$function(x),
+            Value::UInt128(x) => U128Ops::$function(x),
+            Value::Int256(x) => I256Ops::$function(x),
+            Value::UInt256(x) => U256Ops::$function(x),
             x => Err(CheckErrors::UnionTypeValueError(
-                vec![TypeSignature::IntType, TypeSignature::UIntType],
+                vec![
+                    TypeSignature::IntegerType(IntegerSubtype::I8), 
+                    TypeSignature::IntegerType(IntegerSubtype::U8),
+                    TypeSignature::IntegerType(IntegerSubtype::I16),
+                    TypeSignature::IntegerType(IntegerSubtype::U16),
+                    TypeSignature::IntegerType(IntegerSubtype::I32),
+                    TypeSignature::IntegerType(IntegerSubtype::U32),
+                    TypeSignature::IntegerType(IntegerSubtype::I64),
+                    TypeSignature::IntegerType(IntegerSubtype::U64),
+                    TypeSignature::IntegerType(IntegerSubtype::I128),
+                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::IntegerType(IntegerSubtype::I256),
+                    TypeSignature::IntegerType(IntegerSubtype::U256),
+                ],
                 x,
             )
             .into()),

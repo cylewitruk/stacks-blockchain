@@ -200,6 +200,7 @@ impl FunctionType {
                     .split_first()
                     .ok_or(CheckErrors::RequiresAtLeastArguments(1, args.len()))?;
                 analysis_typecheck_cost(accounting, &TypeSignature::IntType, first)?;
+                // TODO: RETURN TYPE SHOULD BE THE LARGEST INPUT TYPE, AND SIGNED IF ANY INPUTS ARE SIGNED
                 let return_type = match first {
                     TypeSignature::IntType => Ok(TypeSignature::IntType),
                     TypeSignature::UIntType => Ok(TypeSignature::UIntType),

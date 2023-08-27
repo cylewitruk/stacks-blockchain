@@ -110,7 +110,7 @@ pub fn special_stx_balance(
                 .get_stx_balance_snapshot(principal);
             snapshot.get_available_balance()
         };
-        Ok(Value::UInt(balance))
+        Ok(Value::UInt128(balance))
     } else {
         Err(CheckErrors::TypeValueError(TypeSignature::PrincipalType, owner).into())
     }
@@ -176,7 +176,7 @@ pub fn special_stx_transfer(
     if let (
         Value::Principal(ref from),
         Value::Principal(ref to),
-        Value::UInt(amount),
+        Value::UInt128(amount),
         Value::Sequence(SequenceData::Buffer(ref memo)),
     ) = (from_val, to_val, amount_val, memo_val)
     {
@@ -202,7 +202,7 @@ pub fn special_stx_transfer_memo(
     if let (
         Value::Principal(ref from),
         Value::Principal(ref to),
-        Value::UInt(amount),
+        Value::UInt128(amount),
         Value::Sequence(SequenceData::Buffer(ref memo)),
     ) = (from_val, to_val, amount_val, memo_val)
     {
@@ -238,15 +238,15 @@ pub fn special_stx_account(
     TupleData::from_data(vec![
         (
             "unlocked".try_into().unwrap(),
-            Value::UInt(stx_balance.amount_unlocked()),
+            Value::UInt128(stx_balance.amount_unlocked()),
         ),
         (
             "locked".try_into().unwrap(),
-            Value::UInt(stx_balance.amount_locked()),
+            Value::UInt128(stx_balance.amount_locked()),
         ),
         (
             "unlock-height".try_into().unwrap(),
-            Value::UInt(stx_balance.effective_unlock_height(v1_unlock_ht) as u128),
+            Value::UInt128(stx_balance.effective_unlock_height(v1_unlock_ht) as u128),
         ),
     ])
     .map(|t| Value::Tuple(t))
@@ -264,7 +264,7 @@ pub fn special_stx_burn(
     let amount_val = eval(&args[0], env, context)?;
     let from_val = eval(&args[1], env, context)?;
 
-    if let (Value::Principal(ref from), Value::UInt(amount)) = (&from_val, amount_val) {
+    if let (Value::Principal(ref from), Value::UInt128(amount)) = (&from_val, amount_val) {
         if amount == 0 {
             return clarity_ecode!(StxErrorCodes::NON_POSITIVE_AMOUNT);
         }
@@ -311,7 +311,7 @@ pub fn special_mint_token(
     let amount = eval(&args[1], env, context)?;
     let to = eval(&args[2], env, context)?;
 
-    if let (Value::UInt(amount), Value::Principal(ref to_principal)) = (amount, to) {
+    if let (Value::UInt128(amount), Value::Principal(ref to_principal)) = (amount, to) {
         if amount == 0 {
             return clarity_ecode!(MintTokenErrorCodes::NON_POSITIVE_AMOUNT);
         }
@@ -676,7 +676,7 @@ pub fn special_transfer_token(
     let to = eval(&args[3], env, context)?;
 
     if let (
-        Value::UInt(amount),
+        Value::UInt128(amount),
         Value::Principal(ref from_principal),
         Value::Principal(ref to_principal),
     ) = (amount, from, to)
@@ -787,7 +787,7 @@ pub fn special_get_balance(
             principal,
             Some(ft_info),
         )?;
-        Ok(Value::UInt(balance))
+        Ok(Value::UInt128(balance))
     } else {
         Err(CheckErrors::TypeValueError(TypeSignature::PrincipalType, owner).into())
     }
@@ -893,7 +893,7 @@ pub fn special_get_token_supply(
         .global_context
         .database
         .get_ft_supply(&env.contract_context.contract_identifier, token_name)?;
-    Ok(Value::UInt(supply))
+    Ok(Value::UInt128(supply))
 }
 
 pub fn special_burn_token(
@@ -910,7 +910,7 @@ pub fn special_burn_token(
     let amount = eval(&args[1], env, context)?;
     let from = eval(&args[2], env, context)?;
 
-    if let (Value::UInt(amount), Value::Principal(ref burner)) = (amount, from) {
+    if let (Value::UInt128(amount), Value::Principal(ref burner)) = (amount, from) {
         if amount == 0 {
             return clarity_ecode!(BurnTokenErrorCodes::NOT_ENOUGH_BALANCE_OR_NON_POSITIVE);
         }

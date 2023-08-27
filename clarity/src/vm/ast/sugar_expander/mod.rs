@@ -268,7 +268,7 @@ mod test {
                                 13,
                                 Box::new([
                                     make_pre_atom("x", 1, 10, 1, 10),
-                                    make_pre_atom_value(Value::Int(1), 1, 12, 1, 12),
+                                    make_pre_atom_value(Value::Int128(1), 1, 12, 1, 12),
                                 ]),
                             ),
                             make_pre_list(
@@ -278,7 +278,7 @@ mod test {
                                 19,
                                 Box::new([
                                     make_pre_atom("y", 1, 16, 1, 16),
-                                    make_pre_atom_value(Value::Int(2), 1, 18, 1, 18),
+                                    make_pre_atom_value(Value::Int128(2), 1, 18, 1, 18),
                                 ]),
                             ),
                         ]),
@@ -310,7 +310,7 @@ mod test {
                                             19,
                                             Box::new([
                                                 make_pre_atom("x", 4, 16, 4, 16),
-                                                make_pre_atom_value(Value::Int(3), 4, 18, 4, 18),
+                                                make_pre_atom_value(Value::Int128(3), 4, 18, 4, 18),
                                             ]),
                                         )]),
                                     ),
@@ -358,7 +358,7 @@ mod test {
                                 13,
                                 Box::new([
                                     make_atom("x", 1, 10, 1, 10),
-                                    make_literal_value(Value::Int(1), 1, 12, 1, 12),
+                                    make_literal_value(Value::Int128(1), 1, 12, 1, 12),
                                 ]),
                             ),
                             make_list(
@@ -368,7 +368,7 @@ mod test {
                                 19,
                                 Box::new([
                                     make_atom("y", 1, 16, 1, 16),
-                                    make_literal_value(Value::Int(2), 1, 18, 1, 18),
+                                    make_literal_value(Value::Int128(2), 1, 18, 1, 18),
                                 ]),
                             ),
                         ]),
@@ -400,7 +400,7 @@ mod test {
                                             19,
                                             Box::new([
                                                 make_atom("x", 4, 16, 4, 16),
-                                                make_literal_value(Value::Int(3), 4, 18, 4, 18),
+                                                make_literal_value(Value::Int128(3), 4, 18, 4, 18),
                                             ]),
                                         )]),
                                     ),
@@ -448,7 +448,7 @@ mod test {
             9,
             Box::new([
                 make_pre_atom("id", 1, 2, 1, 3),
-                make_pre_atom_value(Value::Int(1337), 1, 5, 1, 8),
+                make_pre_atom_value(Value::Int128(1337), 1, 5, 1, 8),
             ]),
         )];
         let ast = vec![make_list(
@@ -465,7 +465,7 @@ mod test {
                     0,
                     Box::new([
                         make_atom("id", 1, 2, 1, 3),
-                        make_literal_value(Value::Int(1337), 1, 5, 1, 8),
+                        make_literal_value(Value::Int128(1337), 1, 5, 1, 8),
                     ]),
                 ),
             ]),

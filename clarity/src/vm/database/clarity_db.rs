@@ -52,6 +52,7 @@ use crate::vm::errors::{
 };
 use crate::vm::representations::ClarityName;
 use crate::vm::types::byte_len_of_serialization;
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     serialization::NONE_SERIALIZATION_LEN, OptionalData, PrincipalData,
     QualifiedContractIdentifier, SequenceData, StandardPrincipalData, TupleData,
@@ -679,7 +680,7 @@ impl<'a> ClarityDatabase<'a> {
     pub fn get_total_liquid_ustx(&mut self) -> u128 {
         self.get_value(
             ClarityDatabase::ustx_liquid_supply_key(),
-            &TypeSignature::UIntType,
+            &TypeSignature::IntegerType(IntegerSubtype::I128),
         )
         .map(|v| v.value.expect_u128())
         .unwrap_or(0)
@@ -688,7 +689,7 @@ impl<'a> ClarityDatabase<'a> {
     fn set_ustx_liquid_supply(&mut self, set_to: u128) {
         self.put(
             ClarityDatabase::ustx_liquid_supply_key(),
-            &Value::UInt(set_to),
+            &Value::UInt128(set_to),
         )
     }
 
@@ -973,7 +974,7 @@ impl<'a> ClarityDatabase<'a> {
                 ),
                 (
                     ClarityName::try_from("sequence").expect("BUG: valid string representation"),
-                    Value::UInt(seq as u128),
+                    Value::UInt128(seq as u128),
                 ),
             ])
             .expect("BUG: valid tuple representation"),
