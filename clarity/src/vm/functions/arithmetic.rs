@@ -295,6 +295,7 @@ macro_rules! type_force_variadic_arithmetic {
         let first = $args
             .get(0)
             .ok_or(CheckErrors::IncorrectArgumentCount(1, $args.len()))?;
+        
         match first {
             Value::Int(_) => {
                 let typed_args: Result<Vec<_>, _> = $args

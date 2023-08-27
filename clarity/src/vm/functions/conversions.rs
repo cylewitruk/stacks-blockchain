@@ -25,6 +25,7 @@ use crate::vm::representations::SymbolicExpression;
 use crate::vm::types::SequenceSubtype::{BufferType, StringType};
 use crate::vm::types::StringSubtype::ASCII;
 use crate::vm::types::TypeSignature::SequenceType;
+use crate::vm::types::signatures::IntegerSubtype;
 use crate::vm::types::{
     ASCIIData, BuffData, BufferLength, CharType, SequenceData, TypeSignature, UTF8Data, Value,
 };
@@ -185,18 +186,81 @@ pub fn native_int_to_string_generic(
     bytes_to_value_fn: fn(bytes: Vec<u8>) -> Result<Value>,
 ) -> Result<Value> {
     match value {
-        Value::Int(ref int_value) => {
+        Value::Int8(ref int_value) => {
             let as_string = int_value.to_string();
             Ok(bytes_to_value_fn(as_string.into())
-                .expect("Unexpected error converting Int to string."))
+                .expect("Unexpected error converting Int8 to string."))
         }
-        Value::UInt(ref uint_value) => {
+        Value::Int16(ref int_value) => {
+            let as_string = int_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting Int16 to string."))
+        }
+        Value::Int32(ref int_value) => {
+            let as_string = int_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting Int32 to string."))
+        }
+        Value::Int64(ref int_value) => {
+            let as_string = int_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting Int64 to string."))
+        }
+        Value::Int128(ref int_value) => {
+            let as_string = int_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting Int128 to string."))
+        }
+        Value::Int256(ref int_value) => {
+            let as_string = int_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting Int256 to string."))
+        }
+        Value::UInt8(ref uint_value) => {
             let as_string = uint_value.to_string();
             Ok(bytes_to_value_fn(as_string.into())
-                .expect("Unexpected error converting UInt to string."))
+                .expect("Unexpected error converting UInt8 to string."))
+        }
+        Value::UInt16(ref uint_value) => {
+            let as_string = uint_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting UInt16 to string."))
+        }
+        Value::UInt32(ref uint_value) => {
+            let as_string = uint_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting UInt32 to string."))
+        }
+        Value::UInt64(ref uint_value) => {
+            let as_string = uint_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting UInt64 to string."))
+        }
+        Value::UInt128(ref uint_value) => {
+            let as_string = uint_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting UInt128 to string."))
+        }
+        Value::UInt256(ref uint_value) => {
+            let as_string = uint_value.to_string();
+            Ok(bytes_to_value_fn(as_string.into())
+                .expect("Unexpected error converting UInt256 to string."))
         }
         _ => Err(CheckErrors::UnionTypeValueError(
-            vec![TypeSignature::IntType, TypeSignature::UIntType],
+            vec![
+                TypeSignature::IntegerType(IntegerSubtype::I8),
+                TypeSignature::IntegerType(IntegerSubtype::I16),
+                TypeSignature::IntegerType(IntegerSubtype::I32),
+                TypeSignature::IntegerType(IntegerSubtype::I64),
+                TypeSignature::IntegerType(IntegerSubtype::I128),
+                TypeSignature::IntegerType(IntegerSubtype::I256),
+                TypeSignature::IntegerType(IntegerSubtype::U8),
+                TypeSignature::IntegerType(IntegerSubtype::U16),
+                TypeSignature::IntegerType(IntegerSubtype::U32),
+                TypeSignature::IntegerType(IntegerSubtype::U64),
+                TypeSignature::IntegerType(IntegerSubtype::U128),
+                TypeSignature::IntegerType(IntegerSubtype::U256),
+            ],
             value,
         )
         .into()),

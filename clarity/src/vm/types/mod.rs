@@ -1027,6 +1027,42 @@ impl Value {
         }
     }
 
+    pub fn expect_u8(self) -> u8 {
+        if let Value::UInt8(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not a u8", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_u16(self) -> u16 {
+        if let Value::UInt16(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not a u16", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_u32(self) -> u32 {
+        if let Value::UInt32(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not a u32", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_u64(self) -> u64 {
+        if let Value::UInt64(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not a u64", &self);
+            panic!();
+        }
+    }
+
     pub fn expect_u128(self) -> u128 {
         if let Value::UInt128(inner) = self {
             inner
@@ -1036,11 +1072,65 @@ impl Value {
         }
     }
 
+    pub fn expect_u256(self) -> u256 {
+        if let Value::UInt256(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not a u256", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_i8(self) -> i8 {
+        if let Value::Int8(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not an i8", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_i16(self) -> i16 {
+        if let Value::Int16(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not an i16", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_i32(self) -> i32 {
+        if let Value::Int32(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not an i32", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_i64(self) -> i64 {
+        if let Value::Int64(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not an i64", &self);
+            panic!();
+        }
+    }
+
     pub fn expect_i128(self) -> i128 {
         if let Value::Int128(inner) = self {
             inner
         } else {
             error!("Value '{:?}' is not an i128", &self);
+            panic!();
+        }
+    }
+
+    pub fn expect_i256(self) -> i256 {
+        if let Value::Int256(inner) = self {
+            inner
+        } else {
+            error!("Value '{:?}' is not an i256", &self);
             panic!();
         }
     }
