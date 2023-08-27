@@ -57,7 +57,11 @@ pub enum CheckErrors {
     UnknownTypeName(String),
 
     // union type mismatch
+    /// Used to indicate that a received type did not match (one of) the allowed types. The allowed types
+    /// are provided in the `Vec` (first argument), and the received type is provided as the second argument.
     UnionTypeError(Vec<TypeSignature>, TypeSignature),
+    /// Used to indicate that a received value did not match (one of) the allowed types. The allowed types
+    /// are provided in the `Vec` (first argument), and the received value is provided as the second argument.
     UnionTypeValueError(Vec<TypeSignature>, Value),
 
     ExpectedLiteral,

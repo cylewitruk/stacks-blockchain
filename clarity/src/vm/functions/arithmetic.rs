@@ -291,6 +291,7 @@ macro_rules! type_force_unary_arithmetic {
 //   to the correct arithmetic type handler (after deconstructing the Clarity Values into
 //   the corresponding Rust integer type.
 macro_rules! type_force_variadic_arithmetic {
+    // TODO: Return type should be largest integer type
     ($function: ident, $args: expr) => {{
         let first = $args
             .get(0)
@@ -490,11 +491,37 @@ macro_rules! make_arithmetic_ops {
     };
 }
 
-make_arithmetic_ops!(U128Ops, u128);
+// Generate arithmetic operations for the specified xOps structs using the specified rust
+// integer types.
+make_arithmetic_ops!(I8Ops, i8);
+make_arithmetic_ops!(U8Ops, u8);
+make_arithmetic_ops!(I16Ops, i16);
+make_arithmetic_ops!(U16Ops, u16);
+make_arithmetic_ops!(I32Ops, i32);
+make_arithmetic_ops!(U32Ops, u32);
+make_arithmetic_ops!(I64Ops, i64);
+make_arithmetic_ops!(U64Ops, u64);
 make_arithmetic_ops!(I128Ops, i128);
+make_arithmetic_ops!(U128Ops, u128);
+make_arithmetic_ops!(I256Ops, i256);
+make_arithmetic_ops!(U256Ops, u256);
 
-make_comparison_ops!(U128Ops, u128);
+// Generate comparison operations for the specified xOps structs using the specified rust
+// integer types.
+make_comparison_ops!(I8Ops, i8);
+make_comparison_ops!(U8Ops, u8);
+make_comparison_ops!(I16Ops, i16);
+make_comparison_ops!(U16Ops, u16);
+make_comparison_ops!(I32Ops, i32);
+make_comparison_ops!(U32Ops, u32);
+make_comparison_ops!(I64Ops, i64);
+make_comparison_ops!(U64Ops, u64);
 make_comparison_ops!(I128Ops, i128);
+make_comparison_ops!(U128Ops, u128);
+make_comparison_ops!(I256Ops, i256);
+make_comparison_ops!(U256Ops, u256);
+
+// Generate comparison operations for buffers, ascii and utf8 string types.
 make_comparison_ops!(ASCIIOps, Vec<u8>);
 make_comparison_ops!(UTF8Ops, Vec<Vec<u8>>);
 make_comparison_ops!(BuffOps, Vec<u8>);
@@ -766,20 +793,41 @@ pub fn native_bitwise_right_shift(input: Value, pos: Value) -> InterpreterResult
 }
 
 pub fn native_to_uint(input: Value) -> InterpreterResult<Value> {
-    if let Value::Int(int_val) = input {
-        let uint_val =
-            u128::try_from(int_val).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?;
-        Ok(Value::UInt(uint_val))
-    } else {
-        Err(CheckErrors::TypeValueError(TypeSignature::IntType, input).into())
+    match input {
+        Value::Int8(int) => Ok(Value::UInt8(u8::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        Value::Int16(int) => Ok(Value::UInt16(u16::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        Value::Int32(int) => Ok(Value::UInt32(u32::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        Value::Int64(int) => Ok(Value::UInt64(u64::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        Value::Int128(int) => Ok(Value::UInt128(u128::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        Value::Int256(int) => Ok(Value::UInt256(u256::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
+        _ => Err(CheckErrors::UnionTypeValueError(vec![
+                TypeSignature::IntegerType(IntegerSubtype::I8), 
+                TypeSignature::IntegerType(IntegerSubtype::I16),
+                TypeSignature::IntegerType(IntegerSubtype::I32),
+                TypeSignature::IntegerType(IntegerSubtype::I64),
+                TypeSignature::IntegerType(IntegerSubtype::I128),
+                TypeSignature::IntegerType(IntegerSubtype::I256)
+             ],
+             input).into())
     }
 }
 
 pub fn native_to_int(input: Value) -> InterpreterResult<Value> {
-    if let Value::UInt(uint_val) = input {
-        let int_val = i128::try_from(uint_val).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?;
-        Ok(Value::Int(int_val))
-    } else {
-        Err(CheckErrors::TypeValueError(TypeSignature::UIntType, input).into())
+    match input {
+        Value::UInt8(int) => Ok(Value::Int8(i8::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        Value::UInt16(int) => Ok(Value::Int16(i16::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        Value::UInt32(int) => Ok(Value::Int32(i32::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        Value::UInt64(int) => Ok(Value::Int64(i64::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        Value::UInt128(int) => Ok(Value::Int128(i128::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        Value::UInt256(int) => Ok(Value::Int256(i256::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
+        _ => Err(CheckErrors::UnionTypeValueError(vec![
+                TypeSignature::IntegerType(IntegerSubtype::U8), 
+                TypeSignature::IntegerType(IntegerSubtype::U16),
+                TypeSignature::IntegerType(IntegerSubtype::U32),
+                TypeSignature::IntegerType(IntegerSubtype::U64),
+                TypeSignature::IntegerType(IntegerSubtype::U128),
+                TypeSignature::IntegerType(IntegerSubtype::U256)
+             ],
+             input).into())
     }
 }
