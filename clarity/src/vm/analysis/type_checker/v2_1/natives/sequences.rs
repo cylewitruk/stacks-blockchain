@@ -435,7 +435,7 @@ pub fn check_special_slice(
     };
 
     // Check left position argument
-    checker.type_check_expects(&args[1], context, &TypeSignature::UIntType)?;
+    checker.type_check_expects(&args[1], context, &TypeSignature::IntegerType)?;
     // Check right position argument
     checker.type_check_expects(&args[2], context, &TypeSignature::UIntType)?;
 

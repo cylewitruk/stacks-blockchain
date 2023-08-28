@@ -869,7 +869,7 @@ impl<'a> Parser<'a> {
                         }
                         Token::Int(val_string) => {
                             let mut expr = match val_string.parse::<i128>() {
-                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int(val)),
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int128(val)),
                                 Err(_) => {
                                     self.add_diagnostic(
                                         ParseErrors::FailedParsingIntValue(val_string.clone()),
@@ -883,7 +883,7 @@ impl<'a> Parser<'a> {
                         }
                         Token::Uint(val_string) => {
                             let mut expr = match val_string.parse::<u128>() {
-                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt(val)),
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt128(val)),
                                 Err(_) => {
                                     self.add_diagnostic(
                                         ParseErrors::FailedParsingUIntValue(val_string.clone()),
@@ -1152,7 +1152,7 @@ mod tests {
         assert_eq!(success, true);
         assert_eq!(stmts.len(), 1);
         assert_eq!(diagnostics.len(), 0);
-        if let Some(Value::Int(123)) = stmts[0].match_atom_value() {
+        if let Some(Value::Int128(123)) = stmts[0].match_atom_value() {
         } else {
             panic!("failed to parse int value");
         }
@@ -1170,7 +1170,7 @@ mod tests {
         assert_eq!(success, true);
         assert_eq!(stmts.len(), 1);
         assert_eq!(diagnostics.len(), 0);
-        if let Some(Value::Int(-123)) = stmts[0].match_atom_value() {
+        if let Some(Value::Int128(-123)) = stmts[0].match_atom_value() {
         } else {
             panic!("failed to parse negative int value");
         }
@@ -1254,7 +1254,7 @@ mod tests {
         assert_eq!(success, true);
         assert_eq!(stmts.len(), 1);
         assert_eq!(diagnostics.len(), 0);
-        if let Some(Value::Int(123)) = stmts[0].match_atom_value() {
+        if let Some(Value::Int128(123)) = stmts[0].match_atom_value() {
         } else {
             panic!("failed to parse int value");
         }
@@ -1275,7 +1275,7 @@ mod tests {
         assert_eq!(success, true);
         assert_eq!(stmts.len(), 1);
         assert_eq!(diagnostics.len(), 0);
-        if let Some(Value::UInt(98)) = stmts[0].match_atom_value() {
+        if let Some(Value::UInt128(98)) = stmts[0].match_atom_value() {
         } else {
             panic!("failed to parse uint value");
         }
@@ -1359,7 +1359,7 @@ mod tests {
         assert_eq!(success, true);
         assert_eq!(stmts.len(), 1);
         assert_eq!(diagnostics.len(), 0);
-        if let Some(Value::UInt(123)) = stmts[0].match_atom_value() {
+        if let Some(Value::UInt128(123)) = stmts[0].match_atom_value() {
         } else {
             panic!("failed to parse int value");
         }
@@ -1568,7 +1568,7 @@ mod tests {
             }
         );
         match exprs[1].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(1)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(1)) => (),
             _ => panic!("expected Value(1)"),
         }
         assert_eq!(
@@ -1581,7 +1581,7 @@ mod tests {
             }
         );
         match exprs[2].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::UInt(3)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::UInt128(3)) => (),
             _ => panic!("expected Value(u3)"),
         }
         assert_eq!(
@@ -1614,7 +1614,7 @@ mod tests {
         assert_eq!(stmts.len(), 1);
         let exprs = stmts[0].match_list().unwrap();
         match exprs[0].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(1)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(1)) => (),
             _ => panic!("expected Value(1)"),
         }
         assert_eq!(
@@ -1627,7 +1627,7 @@ mod tests {
             }
         );
         match exprs[1].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(2)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(2)) => (),
             _ => panic!("expected Value(2)"),
         }
         assert_eq!(
@@ -1640,7 +1640,7 @@ mod tests {
             }
         );
         match exprs[2].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(3)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(3)) => (),
             _ => panic!("expected Value(3)"),
         }
         assert_eq!(
@@ -2153,19 +2153,19 @@ mod tests {
         };
         assert_eq!(list.len(), 4);
         match list[0].match_atom_value() {
-            Some(Value::Int(1)) => (),
+            Some(Value::Int128(1)) => (),
             _ => panic!("failed to parse tuple"),
         }
         match list[1].match_atom_value() {
-            Some(Value::UInt(2)) => (),
+            Some(Value::UInt128(2)) => (),
             _ => panic!("failed to parse tuple"),
         }
         match list[2].match_atom_value() {
-            Some(Value::Int(3)) => (),
+            Some(Value::Int128(3)) => (),
             _ => panic!("failed to parse tuple"),
         }
         match list[3].match_atom_value() {
-            Some(Value::UInt(4)) => (),
+            Some(Value::UInt128(4)) => (),
             _ => panic!("failed to parse tuple"),
         }
 
@@ -2714,11 +2714,11 @@ mod tests {
         let exprs = stmts[0].match_list().unwrap();
         assert_eq!(exprs.len(), 2);
         match exprs[0].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(1)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(1)) => (),
             _ => panic!("expected Value(1)"),
         }
         match exprs[1].pre_expr {
-            PreSymbolicExpressionType::AtomValue(Value::Int(3)) => (),
+            PreSymbolicExpressionType::AtomValue(Value::Int128(3)) => (),
             _ => panic!("expected Value(3)"),
         }
         assert_eq!(diagnostics.len(), 1);
@@ -2783,7 +2783,7 @@ mod tests {
             }
         );
         match stmts[1].match_atom_value() {
-            Some(Value::UInt(42)) => (),
+            Some(Value::UInt128(42)) => (),
             _ => panic!("failed to parse uint after principal"),
         }
 
@@ -3187,7 +3187,7 @@ mod tests {
             }
         );
         match stmts[1].match_atom_value() {
-            Some(Value::Int(123)) => (),
+            Some(Value::Int128(123)) => (),
             _ => panic!("failed to parse int with errors"),
         }
         assert_eq!(
@@ -3246,11 +3246,11 @@ mod tests {
             }
         );
         match exprs[1].match_atom_value() {
-            Some(Value::Int(1)) => (),
+            Some(Value::Int128(1)) => (),
             _ => panic!("failed to parse int in list"),
         }
         match exprs[2].match_atom_value() {
-            Some(Value::Int(2)) => (),
+            Some(Value::Int128(2)) => (),
             _ => panic!("failed to parse int in list"),
         }
 

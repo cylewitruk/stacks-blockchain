@@ -1315,8 +1315,8 @@ impl TypeSignature {
     pub fn type_of(x: &Value) -> TypeSignature {
         match x {
             Value::Principal(_) => PrincipalType,
-            Value::Int8(_v) => TypeSignature::IntegerType(IntegerSubtype::I8),
-            Value::UInt8(_v) => TypeSignature::IntegerType(IntegerSubtype::U8),
+            Value::Int8(_) => TypeSignature::IntegerType(IntegerSubtype::I8),
+            Value::UInt8(_) => TypeSignature::IntegerType(IntegerSubtype::U8),
             Value::Int16(_) => TypeSignature::IntegerType(IntegerSubtype::I16),
             Value::UInt16(_) => TypeSignature::IntegerType(IntegerSubtype::U16),
             Value::Int32(_) => TypeSignature::IntegerType(IntegerSubtype::I32),
