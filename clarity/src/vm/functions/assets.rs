@@ -340,7 +340,7 @@ pub fn special_mint_token(
         let final_to_bal = to_bal.checked_add(amount).expect("STX overflow");
 
         env.add_memory(TypeSignature::PrincipalType.size() as u64)?;
-        env.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).size() as u64)?;
+        env.add_memory(TypeSignature::uint128().size() as u64)?;
 
         env.global_context.database.set_ft_balance(
             &env.contract_context.contract_identifier,
@@ -722,8 +722,8 @@ pub fn special_transfer_token(
 
         env.add_memory(TypeSignature::PrincipalType.size() as u64)?;
         env.add_memory(TypeSignature::PrincipalType.size() as u64)?;
-        env.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).size() as u64)?;
-        env.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).size() as u64)?;
+        env.add_memory(TypeSignature::uint128().size() as u64)?;
+        env.add_memory(TypeSignature::uint128().size() as u64)?;
 
         env.global_context.database.set_ft_balance(
             &env.contract_context.contract_identifier,
@@ -949,7 +949,7 @@ pub fn special_burn_token(
         env.register_ft_burn_event(burner.clone(), amount, asset_identifier)?;
 
         env.add_memory(TypeSignature::PrincipalType.size() as u64)?;
-        env.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).size() as u64)?;
+        env.add_memory(TypeSignature::uint128().size() as u64)?;
 
         env.global_context.log_token_transfer(
             burner,

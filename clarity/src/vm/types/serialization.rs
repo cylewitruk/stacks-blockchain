@@ -35,7 +35,7 @@ use crate::vm::errors::{
 };
 use crate::vm::representations::{ClarityName, ContractName, MAX_STRING_LEN};
 use crate::vm::types::byte_len_of_serialization;
-use crate::vm::types::signatures::CallableSubtype;
+use crate::vm::types::signatures::{CallableSubtype, IntegerBits};
 use crate::vm::types::{
     BufferLength, CallableData, CharType, OptionalData, PrincipalData, QualifiedContractIdentifier,
     ResponseData, SequenceData, SequenceSubtype, StandardPrincipalData, StringSubtype,
@@ -338,18 +338,17 @@ impl TypeSignature {
                 // branch should always be used.
                 return Err(CheckErrors::CouldNotDetermineSerializationType);
             }
-            TypeSignature::IntegerType(IntegerSubtype::I8) => 1,
-            TypeSignature::IntegerType(IntegerSubtype::U8) => 1,
-            TypeSignature::IntegerType(IntegerSubtype::I16) => 2,
-            TypeSignature::IntegerType(IntegerSubtype::U16) => 2,
-            TypeSignature::IntegerType(IntegerSubtype::I32) => 4,
-            TypeSignature::IntegerType(IntegerSubtype::U32) => 4,
-            TypeSignature::IntegerType(IntegerSubtype::I64) => 8,
-            TypeSignature::IntegerType(IntegerSubtype::U64) => 8,
-            TypeSignature::IntegerType(IntegerSubtype::I128) => 16,
-            TypeSignature::IntegerType(IntegerSubtype::U128) => 16,
-            TypeSignature::IntegerType(IntegerSubtype::I256) => 32,
-            TypeSignature::IntegerType(IntegerSubtype::U256) => 32,
+            TypeSignature::IntegerType(int_type) => {
+                match int_type {
+                    IntegerSubtype::Signed(int) | IntegerSubtype::Unsigned(int) => {
+                        if int.0 == 0 {
+                            // This should never happen on the evaluation side, but we check for it anyway.
+                            return Err(CheckErrors::CouldNotDetermineSerializationType);
+                        }
+                        (int.0 / 8) as u32
+                    }
+                }
+            },
             TypeSignature::BoolType => 0,
             TypeSignature::SequenceType(SequenceSubtype::ListType(list_type)) => {
                 // u32 length as big-endian bytes
@@ -516,73 +515,73 @@ impl Value {
 
         match prefix {
             TypePrefix::Int8 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I8))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(8))))?;
                 let mut buffer = [0; 1];
                 r.read_exact(&mut buffer)?;
                 Ok(Int8(i8::from_be_bytes(buffer)))
             }
             TypePrefix::UInt8 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U8))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(8))))?;
                 let mut buffer = [0; 1];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt8(u8::from_be_bytes(buffer)))
             }
             TypePrefix::Int16 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I16))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(16))))?;
                 let mut buffer = [0; 2];
                 r.read_exact(&mut buffer)?;
                 Ok(Int16(i16::from_be_bytes(buffer)))
             }
             TypePrefix::UInt16 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U16))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(16))))?;
                 let mut buffer = [0; 2];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt16(u16::from_be_bytes(buffer)))
             }
             TypePrefix::Int32 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I32))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(32))))?;
                 let mut buffer = [0; 4];
                 r.read_exact(&mut buffer)?;
                 Ok(Int32(i32::from_be_bytes(buffer)))
             }
             TypePrefix::UInt32 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U32))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(32))))?;
                 let mut buffer = [0; 4];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt32(u32::from_be_bytes(buffer)))
             }
             TypePrefix::Int64 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I64))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(64))))?;
                 let mut buffer = [0; 8];
                 r.read_exact(&mut buffer)?;
                 Ok(Int64(i64::from_be_bytes(buffer)))
             }
             TypePrefix::UInt64 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U64))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(64))))?;
                 let mut buffer = [0; 8];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt64(u64::from_be_bytes(buffer)))
             }
             TypePrefix::Int128 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I128))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(128))))?;
                 let mut buffer = [0; 16];
                 r.read_exact(&mut buffer)?;
                 Ok(Int128(i128::from_be_bytes(buffer)))
             }
             TypePrefix::UInt128 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U128))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(128))))?;
                 let mut buffer = [0; 16];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt128(u128::from_be_bytes(buffer)))
             }
             TypePrefix::Int256 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::I256))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Signed(IntegerBits(256))))?;
                 let mut buffer = [0; 32];
                 r.read_exact(&mut buffer)?;
                 Ok(Int256(i256::from_be_bytes(buffer)))
             },
             TypePrefix::UInt256 => {
-                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::U256))?;
+                check_match!(expected_type, TypeSignature::IntegerType(IntegerSubtype::Unsigned(IntegerBits(256))))?;
                 let mut buffer = [0; 32];
                 r.read_exact(&mut buffer)?;
                 Ok(UInt256(u256::from_be_bytes(buffer)))
@@ -1215,8 +1214,8 @@ mod tests {
         test_deser_ser(Value::Bool(false));
         test_deser_ser(Value::Bool(true));
 
-        test_bad_expectation(Value::Bool(false), TypeSignature::IntegerType(IntegerSubtype::I128));
-        test_bad_expectation(Value::Bool(true), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::Bool(false), TypeSignature::int128());
+        test_bad_expectation(Value::Bool(true), TypeSignature::int128());
     }
 
     #[test]
@@ -1227,7 +1226,7 @@ mod tests {
         test_deser_ser(Value::Int128(i128::MAX));
         test_deser_ser(Value::Int128(i128::MIN));
 
-        test_bad_expectation(Value::Int128(1), TypeSignature::IntegerType(IntegerSubtype::U128));
+        test_bad_expectation(Value::Int128(1), TypeSignature::uint128());
     }
 
     #[test]
@@ -1237,7 +1236,7 @@ mod tests {
         test_deser_ser(Value::UInt128(u128::MAX));
         test_deser_ser(Value::UInt128(u128::MIN));
 
-        test_bad_expectation(Value::UInt128(1), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::UInt128(1), TypeSignature::int128());
     }
 
     #[apply(test_clarity_versions_serialization)]
@@ -1245,8 +1244,8 @@ mod tests {
         test_deser_ser(Value::none());
         test_deser_ser(Value::some(Value::Int128(15)).unwrap());
 
-        test_bad_expectation(Value::none(), TypeSignature::IntegerType(IntegerSubtype::I128));
-        test_bad_expectation(Value::some(Value::Int128(15)).unwrap(), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::none(), TypeSignature::int128());
+        test_bad_expectation(Value::some(Value::Int128(15)).unwrap(), TypeSignature::int128());
         // bad expected _contained_ type
         test_bad_expectation(
             Value::some(Value::Int128(15)).unwrap(),
@@ -1260,7 +1259,7 @@ mod tests {
         test_deser_ser(Value::error(Value::Int128(15)).unwrap());
 
         // Bad expected types.
-        test_bad_expectation(Value::okay(Value::Int128(15)).unwrap(), TypeSignature::IntegerType(IntegerSubtype::I128));
+        test_bad_expectation(Value::okay(Value::Int128(15)).unwrap(), TypeSignature::int128());
         test_bad_expectation(
             Value::okay(Value::Int128(15)).unwrap(),
             TypeSignature::from_string("(response uint int)", version, epoch),

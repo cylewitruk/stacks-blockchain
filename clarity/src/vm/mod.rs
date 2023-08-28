@@ -430,7 +430,7 @@ pub fn eval_all(
                     runtime_cost(ClarityCostFunction::CreateFt, global_context, 0)?;
                     contract_context.persisted_names.insert(name.clone());
 
-                    global_context.add_memory(TypeSignature::IntegerType(IntegerSubtype::U128).type_size()
+                    global_context.add_memory(TypeSignature::uint128().type_size()
                                               .expect("type size should be realizable") as u64)?;
 
                     let data_type = global_context.database.create_fungible_token(&contract_context.contract_identifier, &name, &total_supply);
@@ -618,7 +618,7 @@ mod test {
             SymbolicExpression::atom("x".into()),
         ]));
 
-        let func_args = vec![("x".into(), TypeSignature::IntegerType(IntegerSubtype::I128))];
+        let func_args = vec![("x".into(), TypeSignature::int128())];
         let user_function = DefinedFunction::new(
             func_args,
             func_body,

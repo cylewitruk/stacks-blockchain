@@ -299,8 +299,8 @@ mod test {
             FunctionSignature {
                 args: vec![TypeSignature::TraitReferenceType(trait_id.clone())],
                 returns: TypeSignature::ResponseType(Box::new((
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::uint128(),
+                    TypeSignature::uint128(),
                 ))),
             },
         );
@@ -315,7 +315,7 @@ mod test {
                 }],
                 returns: TypeSignature::new_response(
                     TypeSignature::BoolType,
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::uint128(),
                 )
                 .unwrap(),
             }),
@@ -326,7 +326,7 @@ mod test {
             FunctionType::Fixed(FixedFunction {
                 args: vec![
                     FunctionArg {
-                        signature: TypeSignature::IntegerType(IntegerSubtype::U128),
+                        signature: TypeSignature::uint128(),
                         name: "u".into(),
                     },
                     FunctionArg {

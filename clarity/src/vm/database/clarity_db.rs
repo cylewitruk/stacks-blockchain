@@ -680,7 +680,7 @@ impl<'a> ClarityDatabase<'a> {
     pub fn get_total_liquid_ustx(&mut self) -> u128 {
         self.get_value(
             ClarityDatabase::ustx_liquid_supply_key(),
-            &TypeSignature::IntegerType(IntegerSubtype::I128),
+            &TypeSignature::int128(),
         )
         .map(|v| v.value.expect_u128())
         .unwrap_or(0)

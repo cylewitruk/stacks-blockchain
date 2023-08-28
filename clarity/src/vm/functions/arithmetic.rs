@@ -160,20 +160,7 @@ macro_rules! type_force_binary_arithmetic {
             (Value::Int256(x), Value::Int256(y)) => I256Ops::$function(x, y),
             (Value::UInt256(x), Value::UInt256(y)) => U256Ops::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
-                vec![
-                    TypeSignature::IntegerType(IntegerSubtype::I8), 
-                    TypeSignature::IntegerType(IntegerSubtype::U8),
-                    TypeSignature::IntegerType(IntegerSubtype::I16),
-                    TypeSignature::IntegerType(IntegerSubtype::U16),
-                    TypeSignature::IntegerType(IntegerSubtype::I32),
-                    TypeSignature::IntegerType(IntegerSubtype::U32),
-                    TypeSignature::IntegerType(IntegerSubtype::I64),
-                    TypeSignature::IntegerType(IntegerSubtype::U64),
-                    TypeSignature::IntegerType(IntegerSubtype::I128),
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
-                    TypeSignature::IntegerType(IntegerSubtype::I256),
-                    TypeSignature::IntegerType(IntegerSubtype::U256)
-                ],
+                TypeSignature::all_integer_types(),
                 x,
             )
             .into()),
@@ -188,7 +175,7 @@ macro_rules! type_force_binary_comparison_v1 {
             (Value::Int128(x), Value::Int128(y)) => I128Ops::$function(x, y),
             (Value::UInt128(x), Value::UInt128(y)) => U128Ops::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
-                vec![TypeSignature::IntegerType(IntegerSubtype::I128), TypeSignature::IntegerType(IntegerSubtype::U128)],
+                vec![TypeSignature::int128(), TypeSignature::uint128()],
                 x,
             )
             .into()),
@@ -227,22 +214,13 @@ macro_rules! type_force_binary_comparison_v2 {
             ) => BuffOps::$function(x, y),
             (x, _) => Err(CheckErrors::UnionTypeValueError(
                 vec![
-                    TypeSignature::IntegerType(IntegerSubtype::I8), 
-                    TypeSignature::IntegerType(IntegerSubtype::U8),
-                    TypeSignature::IntegerType(IntegerSubtype::I16),
-                    TypeSignature::IntegerType(IntegerSubtype::U16),
-                    TypeSignature::IntegerType(IntegerSubtype::I32),
-                    TypeSignature::IntegerType(IntegerSubtype::U32),
-                    TypeSignature::IntegerType(IntegerSubtype::I64),
-                    TypeSignature::IntegerType(IntegerSubtype::U64),
-                    TypeSignature::IntegerType(IntegerSubtype::I128),
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
-                    TypeSignature::IntegerType(IntegerSubtype::I256),
-                    TypeSignature::IntegerType(IntegerSubtype::U256),
                     TypeSignature::max_string_ascii(),
                     TypeSignature::max_string_utf8(),
                     TypeSignature::max_buffer(),
-                ],
+                ]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
                 x,
             )
             .into()),
@@ -266,20 +244,7 @@ macro_rules! type_force_unary_arithmetic {
             Value::Int256(x) => I256Ops::$function(x),
             Value::UInt256(x) => U256Ops::$function(x),
             x => Err(CheckErrors::UnionTypeValueError(
-                vec![
-                    TypeSignature::IntegerType(IntegerSubtype::I8), 
-                    TypeSignature::IntegerType(IntegerSubtype::U8),
-                    TypeSignature::IntegerType(IntegerSubtype::I16),
-                    TypeSignature::IntegerType(IntegerSubtype::U16),
-                    TypeSignature::IntegerType(IntegerSubtype::I32),
-                    TypeSignature::IntegerType(IntegerSubtype::U32),
-                    TypeSignature::IntegerType(IntegerSubtype::I64),
-                    TypeSignature::IntegerType(IntegerSubtype::U64),
-                    TypeSignature::IntegerType(IntegerSubtype::I128),
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
-                    TypeSignature::IntegerType(IntegerSubtype::I256),
-                    TypeSignature::IntegerType(IntegerSubtype::U256),
-                ],
+                TypeSignature::all_integer_types(),
                 x,
             )
             .into()),
@@ -800,15 +765,9 @@ pub fn native_to_uint(input: Value) -> InterpreterResult<Value> {
         Value::Int64(int) => Ok(Value::UInt64(u64::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
         Value::Int128(int) => Ok(Value::UInt128(u128::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
         Value::Int256(int) => Ok(Value::UInt256(u256::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticUnderflow)?)),
-        _ => Err(CheckErrors::UnionTypeValueError(vec![
-                TypeSignature::IntegerType(IntegerSubtype::I8), 
-                TypeSignature::IntegerType(IntegerSubtype::I16),
-                TypeSignature::IntegerType(IntegerSubtype::I32),
-                TypeSignature::IntegerType(IntegerSubtype::I64),
-                TypeSignature::IntegerType(IntegerSubtype::I128),
-                TypeSignature::IntegerType(IntegerSubtype::I256)
-             ],
-             input).into())
+        _ => Err(CheckErrors::UnionTypeValueError(
+                TypeSignature::all_signed_integer_types(),
+                input).into())
     }
 }
 
@@ -820,14 +779,8 @@ pub fn native_to_int(input: Value) -> InterpreterResult<Value> {
         Value::UInt64(int) => Ok(Value::Int64(i64::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
         Value::UInt128(int) => Ok(Value::Int128(i128::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
         Value::UInt256(int) => Ok(Value::Int256(i256::try_from(int).map_err(|_| RuntimeErrorType::ArithmeticOverflow)?)),
-        _ => Err(CheckErrors::UnionTypeValueError(vec![
-                TypeSignature::IntegerType(IntegerSubtype::U8), 
-                TypeSignature::IntegerType(IntegerSubtype::U16),
-                TypeSignature::IntegerType(IntegerSubtype::U32),
-                TypeSignature::IntegerType(IntegerSubtype::U64),
-                TypeSignature::IntegerType(IntegerSubtype::U128),
-                TypeSignature::IntegerType(IntegerSubtype::U256)
-             ],
-             input).into())
+        _ => Err(CheckErrors::UnionTypeValueError(
+                TypeSignature::all_unsigned_integer_types(),
+                input).into())
     }
 }

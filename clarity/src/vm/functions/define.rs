@@ -215,7 +215,7 @@ fn handle_define_fungible_token(
                 Some(total_supply_int),
             ))
         } else {
-            Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), total_supply_value).into())
+            Err(CheckErrors::TypeValueError(TypeSignature::uint128(), total_supply_value).into())
         }
     } else {
         Ok(DefineResult::FungibleToken(asset_name.clone(), None))

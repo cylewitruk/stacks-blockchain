@@ -724,7 +724,7 @@ pub fn special_get_block_info(
     let height_eval = eval(&args[1], env, context)?;
     let height_value = match height_eval {
         Value::UInt128(result) => Ok(result),
-        x => Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), x)),
+        x => Err(CheckErrors::TypeValueError(TypeSignature::uint128(), x)),
     }?;
 
     let height_value = match u32::try_from(height_value) {
@@ -839,7 +839,7 @@ pub fn special_get_burn_block_info(
     let height_value = match height_eval {
         Value::UInt128(result) => result,
         x => {
-            return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), x).into());
+            return Err(CheckErrors::TypeValueError(TypeSignature::uint128(), x).into());
         }
     };
 

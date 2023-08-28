@@ -54,11 +54,11 @@ pub const COSTS_3_NAME: &'static str = "costs-3";
 lazy_static! {
     static ref COST_TUPLE_TYPE_SIGNATURE: TypeSignature = TypeSignature::TupleType(
         TupleTypeSignature::try_from(vec![
-            ("runtime".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
-            ("write_length".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
-            ("write_count".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
-            ("read_count".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
-            ("read_length".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+            ("runtime".into(), TypeSignature::uint128()),
+            ("write_length".into(), TypeSignature::uint128()),
+            ("write_count".into(), TypeSignature::uint128()),
+            ("read_count".into(), TypeSignature::uint128()),
+            ("read_length".into(), TypeSignature::uint128()),
         ])
         .expect("BUG: failed to construct type signature for cost tuple")
     );
@@ -328,7 +328,7 @@ fn load_state_summary(mainnet: bool, clarity_db: &mut ClarityDatabase) -> Result
 
     let last_processed_at = match clarity_db.get_value(
         "vm-costs::last-processed-at-height",
-        &TypeSignature::IntegerType(IntegerSubtype::U128),
+        &TypeSignature::uint128(),
     ) {
         Some(v) => u32::try_from(v.value.expect_u128()).expect("Block height overflowed u32"),
         None => return Ok(CostStateSummary::empty()),
@@ -388,7 +388,7 @@ fn load_cost_functions(
     apply_updates: bool,
 ) -> Result<CostStateSummary> {
     let last_processed_count = clarity_db
-        .get_value("vm-costs::last_processed_count", &TypeSignature::IntegerType(IntegerSubtype::U128))
+        .get_value("vm-costs::last_processed_count", &TypeSignature::uint128())
         .map(|result| result.value)
         .unwrap_or(Value::UInt128(0))
         .expect_u128();
@@ -515,7 +515,7 @@ fn load_cost_functions(
                         continue;
                     }
                     if !cost_function_type.args.len() == 1
-                        || cost_function_type.args[0].signature != TypeSignature::IntegerType(IntegerSubtype::U128)
+                        || cost_function_type.args[0].signature != TypeSignature::uint128()
                     {
                         warn!("Confirmed cost proposal invalid: cost-function-name args should be length-1 and only uint";
                               "confirmed_proposal_id" => confirmed_proposal,
@@ -583,7 +583,7 @@ fn load_cost_functions(
                             continue;
                         }
                         for arg in &cost_func_type.args {
-                            if &arg.signature != &TypeSignature::IntegerType(IntegerSubtype::U128) {
+                            if &arg.signature != &TypeSignature::uint128() {
                                 warn!("Confirmed cost proposal invalid: contains non uint argument";
                                       "confirmed_proposal_id" => confirmed_proposal,
                                 );

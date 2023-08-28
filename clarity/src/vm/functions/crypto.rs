@@ -58,21 +58,10 @@ macro_rules! native_hash_func {
                 Value::UInt256(value) => Ok(value.to_le_bytes().to_vec()),
                 Value::Sequence(SequenceData::Buffer(value)) => Ok(value.data),
                 _ => Err(CheckErrors::UnionTypeValueError(
-                    vec![
-                        TypeSignature::IntegerType(IntegerSubtype::I8), 
-                        TypeSignature::IntegerType(IntegerSubtype::U8),
-                        TypeSignature::IntegerType(IntegerSubtype::I16),
-                        TypeSignature::IntegerType(IntegerSubtype::U16),
-                        TypeSignature::IntegerType(IntegerSubtype::I32),
-                        TypeSignature::IntegerType(IntegerSubtype::U32),
-                        TypeSignature::IntegerType(IntegerSubtype::I64),
-                        TypeSignature::IntegerType(IntegerSubtype::U64),
-                        TypeSignature::IntegerType(IntegerSubtype::I128),
-                        TypeSignature::IntegerType(IntegerSubtype::U128),
-                        TypeSignature::IntegerType(IntegerSubtype::I256),
-                        TypeSignature::IntegerType(IntegerSubtype::U256),
-                        TypeSignature::max_buffer(),
-                    ],
+                    vec![TypeSignature::max_buffer()]
+                        .into_iter()
+                        .chain(TypeSignature::all_integer_types())
+                        .collect(),
                     input,
                 )),
             }?;

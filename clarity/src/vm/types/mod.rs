@@ -753,7 +753,7 @@ impl BlockInfoProperty {
     pub fn type_result(&self) -> TypeSignature {
         use self::BlockInfoProperty::*;
         match self {
-            Time | MinerSpendWinner | MinerSpendTotal | BlockReward => TypeSignature::IntegerType(IntegerSubtype::U128),
+            Time | MinerSpendWinner | MinerSpendTotal | BlockReward => TypeSignature::uint128(),
             IdentityHeaderHash | VrfSeed | HeaderHash | BurnchainHeaderHash => BUFF_32.clone(),
             MinerAddress => TypeSignature::PrincipalType,
         }
@@ -793,7 +793,7 @@ impl BurnBlockInfoProperty {
                     )
                     .expect("FATAL: bad list type signature"),
                 ),
-                ("payout".into(), TypeSignature::IntegerType(IntegerSubtype::U128)),
+                ("payout".into(), TypeSignature::uint128()),
             ])
             .expect("FATAL: bad type signature for pox addr")
             .into(),
@@ -1671,7 +1671,7 @@ mod test {
             Err(InterpreterError::FailureConstructingListWithType.into())
         );
         assert_eq!(
-            ListTypeData::new_list(TypeSignature::IntegerType(IntegerSubtype::I128), MAX_VALUE_SIZE as u32),
+            ListTypeData::new_list(TypeSignature::int128(), MAX_VALUE_SIZE as u32),
             Err(CheckErrors::ValueTooLarge)
         );
 

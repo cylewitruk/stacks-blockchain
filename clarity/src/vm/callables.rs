@@ -551,7 +551,7 @@ mod test {
 
         // (ok principal) -> (ok <trait>)
         let response_ok_ty =
-            TypeSignature::new_response(trait_ty.clone(), TypeSignature::IntegerType(IntegerSubtype::U128)).unwrap();
+            TypeSignature::new_response(trait_ty.clone(), TypeSignature::uint128()).unwrap();
         let response_contract = Value::okay(contract.clone()).unwrap();
         let cast_response = clarity2_implicit_cast(&response_ok_ty, &response_contract).unwrap();
         let cast_trait = cast_response.expect_result_ok().expect_callable();
@@ -560,7 +560,7 @@ mod test {
 
         // (err principal) -> (err <trait>)
         let response_err_ty =
-            TypeSignature::new_response(TypeSignature::IntegerType(IntegerSubtype::U128), trait_ty.clone()).unwrap();
+            TypeSignature::new_response(TypeSignature::uint128(), trait_ty.clone()).unwrap();
         let response_contract = Value::error(contract.clone()).unwrap();
         let cast_response = clarity2_implicit_cast(&response_err_ty, &response_contract).unwrap();
         let cast_trait = cast_response.expect_result_err().expect_callable();

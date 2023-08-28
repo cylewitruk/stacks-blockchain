@@ -302,7 +302,7 @@ pub fn special_as_max_len(
     } else {
         let actual_len = eval(&args[1], env, context)?;
         Err(
-            CheckErrors::TypeError(TypeSignature::IntegerType(IntegerSubtype::U128), TypeSignature::type_of(&actual_len))
+            CheckErrors::TypeError(TypeSignature::uint128(), TypeSignature::type_of(&actual_len))
                 .into(),
         )
     }
@@ -340,7 +340,7 @@ pub fn native_element_at(sequence: Value, index: Value) -> Result<Value> {
             return Ok(Value::none());
         }
     } else {
-        return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), index).into());
+        return Err(CheckErrors::TypeValueError(TypeSignature::uint128(), index).into());
     };
 
     if let Some(result) = sequence_data.element_at(index) {
@@ -434,7 +434,7 @@ pub fn special_replace_at(
             return Ok(Value::none());
         }
     } else {
-        return Err(CheckErrors::TypeValueError(TypeSignature::IntegerType(IntegerSubtype::U128), index_val).into());
+        return Err(CheckErrors::TypeValueError(TypeSignature::uint128(), index_val).into());
     };
 
     if let Value::Sequence(data) = seq {

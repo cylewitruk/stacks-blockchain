@@ -176,16 +176,16 @@ impl FunctionType {
                 }
                 Ok(returns.clone())
             }
-            FunctionType::UnionArgs(arg_types, return_type) => {
+            FunctionType::UnionArgs(func) => {
                 check_argument_count(1, args)?;
                 let found_type = &args[0];
-                for expected_type in arg_types.iter() {
+                for expected_type in func.arg_types.iter() {
                     analysis_typecheck_cost(accounting, expected_type, found_type)?;
                     if expected_type.admits_type(&StacksEpochId::Epoch2_05, found_type)? {
-                        return Ok(return_type.clone());
+                        return Ok(func.returns.clone());
                     }
                 }
-                Err(CheckErrors::UnionTypeError(arg_types.clone(), found_type.clone()).into())
+                Err(CheckErrors::UnionTypeError(func.arg_types.clone(), found_type.clone()).into())
             }
             FunctionType::ArithmeticVariadic
             | FunctionType::ArithmeticBinary
@@ -219,18 +219,34 @@ impl FunctionType {
             }
             FunctionType::ArithmeticComparison => {
                 check_argument_count(2, args)?;
-                let (first, second) = (&args[0], &args[1]);
-                analysis_typecheck_cost(accounting, &TypeSignature::IntType, first)?;
-                analysis_typecheck_cost(accounting, &TypeSignature::IntType, second)?;
 
-                if first != &TypeSignature::IntType && first != &TypeSignature::UIntType {
+                let (first, second) = (&args[0], &args[1]);
+
+                // Perform cost analysis for the first argument
+                if let TypeSignature::IntegerType(_) = first {
+                    analysis_typecheck_cost(accounting, first, first)?;
+                } else {
+                    analysis_typecheck_cost(accounting, &TypeSignature::int128(), first)?;
+                }
+
+                // Perform cost analysis for the second argument
+                if let TypeSignature::IntegerType(_) = second {
+                    analysis_typecheck_cost(accounting, second, second)?;
+                } else {
+                    analysis_typecheck_cost(accounting, &TypeSignature::int128(), second)?;
+                }
+
+                // If the first argument isn't of an integer type, return an error.
+                if !TypeSignature::all_integer_types().contains(first) {
                     return Err(CheckErrors::UnionTypeError(
-                        vec![TypeSignature::IntType, TypeSignature::UIntType],
+                        TypeSignature::all_integer_types(),
                         first.clone(),
                     )
                     .into());
                 }
 
+                // If the first argument is an integer type, and the second argument is not of the same type
+                // as the first, return an error.
                 if first != second {
                     return Err(CheckErrors::TypeError(first.clone(), second.clone()).into());
                 }
@@ -311,12 +327,12 @@ fn type_reserved_variable(variable_name: &str) -> Option<TypeSignature> {
         let var_type = match variable {
             TxSender => TypeSignature::PrincipalType,
             ContractCaller => TypeSignature::PrincipalType,
-            BlockHeight => TypeSignature::IntegerType(IntegerSubtype::U128),
-            BurnBlockHeight => TypeSignature::IntegerType(IntegerSubtype::U128),
+            BlockHeight => TypeSignature::uint128(),
+            BurnBlockHeight => TypeSignature::uint128(),
             NativeNone => TypeSignature::new_option(no_type()).unwrap(),
             NativeTrue => TypeSignature::BoolType,
             NativeFalse => TypeSignature::BoolType,
-            TotalLiquidMicroSTX => TypeSignature::IntegerType(IntegerSubtype::U128),
+            TotalLiquidMicroSTX => TypeSignature::uint128(),
             Regtest => TypeSignature::BoolType,
             TxSponsor | Mainnet | ChainId => {
                 unreachable!("tx-sponsor, mainnet, and chain-id should not reach here in 2.05")
@@ -768,7 +784,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         context: &mut TypingContext,
     ) -> CheckResult<ClarityName> {
         if let Some(bound) = bound {
-            self.type_check_expects(bound, context, &TypeSignature::IntegerType(IntegerSubtype::U128))?;
+            self.type_check_expects(bound, context, &TypeSignature::uint128())?;
         }
 
         Ok(token_name.clone())
@@ -894,7 +910,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::IntegerType(IntegerSubtype::U128).type_size()?,
+                        TypeSignature::uint128().type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }
@@ -903,7 +919,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::IntegerType(IntegerSubtype::U128).type_size()?,
+                        TypeSignature::uint128().type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }

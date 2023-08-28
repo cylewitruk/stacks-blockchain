@@ -28,7 +28,7 @@ use crate::vm::costs::{
 };
 use crate::vm::errors::{Error as InterpError, RuntimeErrorType};
 use crate::vm::functions::{handle_binding_list, NativeFunctions};
-use crate::vm::types::signatures::IntegerSubtype;
+use crate::vm::types::signatures::{IntegerSubtype, UnionArgsFunction};
 use crate::vm::types::{
     BlockInfoProperty, FixedFunction, FunctionArg, FunctionSignature, FunctionType, PrincipalData,
     TupleTypeSignature, TypeSignature, Value, BUFF_20, BUFF_32, BUFF_33, BUFF_64, BUFF_65,
@@ -564,12 +564,8 @@ impl TypedNativeFunction {
                 TypeSignature::BoolType,
                 TypeSignature::BoolType,
             ))),
-            ToUInt => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {
-                args: vec![FunctionArg::new(
-                    TypeSignature::IntType,
-                    ClarityName::try_from("value".to_owned())
-                        .expect("FAIL: ClarityName failed to accept default arg name"),
-                )],
+            ToUInt => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: TypeSignature::all_signed_integer_types(),
                 returns: TypeSignature::UIntType,
             }))),
             ToInt => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {
@@ -588,46 +584,41 @@ impl TypedNativeFunction {
                 )],
                 returns: TypeSignature::BoolType,
             }))),
-            Hash160 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_20.clone(),
-            ))),
-            Sha256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
-            Sha512Trunc256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
-            Sha512 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_64.clone(),
-            ))),
-            Keccak256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(
-                vec![
-                    TypeSignature::max_buffer(),
-                    TypeSignature::UIntType,
-                    TypeSignature::IntType,
-                ],
-                BUFF_32.clone(),
-            ))),
+            Hash160 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: vec![TypeSignature::max_buffer()]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
+                returns: BUFF_20.clone(),
+            }))),
+            Sha256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: vec![TypeSignature::max_buffer()]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
+                returns: BUFF_32.clone(),
+            }))),
+            Sha512Trunc256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: vec![TypeSignature::max_buffer()]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
+                returns: BUFF_32.clone(),
+            }))),
+            Sha512 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: vec![TypeSignature::max_buffer()]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
+                returns: BUFF_64.clone(),
+            }))),
+            Keccak256 => Simple(SimpleNativeFunction(FunctionType::UnionArgs(UnionArgsFunction {
+                arg_types: vec![TypeSignature::max_buffer()]
+                    .into_iter()
+                    .chain(TypeSignature::all_integer_types())
+                    .collect(),
+                returns: BUFF_32.clone(),
+            }))),
             Secp256k1Recover => Special(SpecialNativeFunction(&check_secp256k1_recover)),
             Secp256k1Verify => Special(SpecialNativeFunction(&check_secp256k1_verify)),
             GetStxBalance => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {
@@ -636,12 +627,12 @@ impl TypedNativeFunction {
                     ClarityName::try_from("owner".to_owned())
                         .expect("FAIL: ClarityName failed to accept default arg name"),
                 )],
-                returns: TypeSignature::UIntType,
+                returns: TypeSignature::uint128(),
             }))),
             StxTransfer => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {
                 args: vec![
                     FunctionArg::new(
-                        TypeSignature::UIntType,
+                        TypeSignature::uint128(),
                         ClarityName::try_from("amount".to_owned())
                             .expect("FAIL: ClarityName failed to accept default arg name"),
                     ),
@@ -658,14 +649,14 @@ impl TypedNativeFunction {
                 ],
                 returns: TypeSignature::new_response(
                     TypeSignature::BoolType,
-                    TypeSignature::UIntType,
+                    TypeSignature::uint128(),
                 )
                 .unwrap(),
             }))),
             StxBurn => Simple(SimpleNativeFunction(FunctionType::Fixed(FixedFunction {
                 args: vec![
                     FunctionArg::new(
-                        TypeSignature::UIntType,
+                        TypeSignature::uint128(),
                         ClarityName::try_from("amount".to_owned())
                             .expect("FAIL: ClarityName failed to accept default arg name"),
                     ),
@@ -677,7 +668,7 @@ impl TypedNativeFunction {
                 ],
                 returns: TypeSignature::new_response(
                     TypeSignature::BoolType,
-                    TypeSignature::UIntType,
+                    TypeSignature::uint128(),
                 )
                 .unwrap(),
             }))),

@@ -2166,8 +2166,8 @@ mod test {
             FunctionSignature {
                 args: vec![TypeSignature::TraitReferenceType(trait_id.clone())],
                 returns: TypeSignature::ResponseType(Box::new((
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
-                    TypeSignature::IntegerType(IntegerSubtype::U128),
+                    TypeSignature::uint128(),
+                    TypeSignature::uint128(),
                 ))),
             },
         );
