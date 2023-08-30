@@ -359,7 +359,7 @@ pub fn check_special_len(
         _ => Err(CheckErrors::ExpectedSequence(collection_type)),
     }?;
 
-    Ok(TypeSignature::UIntType)
+    Ok(TypeSignature::uint128())
 }
 
 pub fn check_special_element_at(

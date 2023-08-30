@@ -3,6 +3,7 @@ pub mod lexer;
 use std::convert::TryFrom;
 use std::num::ParseIntError;
 
+use ethnum::{i256, u256};
 use stacks_common::util::hash::hex_bytes;
 
 use self::lexer::error::LexerError;
@@ -867,13 +868,13 @@ impl<'a> Parser<'a> {
                                 SetupTupleResult::Closed(closed_tuple) => Some(closed_tuple),
                             }
                         }
-                        Token::Int(val_string) => {
-                            let mut expr = match val_string.parse::<i128>() {
-                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int128(val)),
+                        Token::Int8(val_string) => {
+                            let mut expr = match val_string.parse::<i8>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int8(val)),
                                 Err(_) => {
                                     self.add_diagnostic(
                                         ParseErrors::FailedParsingIntValue(val_string.clone()),
-                                        token.span.clone(),
+                                        token.span.clone()
                                     )?;
                                     PreSymbolicExpression::placeholder(token.token.reproduce())
                                 }
@@ -881,13 +882,153 @@ impl<'a> Parser<'a> {
                             expr.span = token.span;
                             Some(expr)
                         }
-                        Token::Uint(val_string) => {
+                        Token::UInt8(val_string) => {
+                            let mut expr = match val_string.parse::<u8>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt8(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::Int16(val_string) => {
+                            let mut expr = match val_string.parse::<i16>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int16(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::UInt16(val_string) => {
+                            let mut expr = match val_string.parse::<u16>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt16(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::Int32(val_string) => {
+                            let mut expr = match val_string.parse::<i32>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int32(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::UInt32(val_string) => {
+                            let mut expr = match val_string.parse::<u32>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt32(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::Int64(val_string) => {
+                            let mut expr = match val_string.parse::<i64>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int64(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::UInt64(val_string) => {
+                            let mut expr = match val_string.parse::<u64>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt64(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::Int128(val_string) => {
+                            let mut expr = match val_string.parse::<i128>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int128(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::UInt128(val_string) => {
                             let mut expr = match val_string.parse::<u128>() {
                                 Ok(val) => PreSymbolicExpression::atom_value(Value::UInt128(val)),
                                 Err(_) => {
                                     self.add_diagnostic(
-                                        ParseErrors::FailedParsingUIntValue(val_string.clone()),
-                                        token.span.clone(),
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::Int256(val_string) => {
+                            let mut expr = match val_string.parse::<i256>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::Int256(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
+                                    )?;
+                                    PreSymbolicExpression::placeholder(token.token.reproduce())
+                                }
+                            };
+                            expr.span = token.span;
+                            Some(expr)
+                        }
+                        Token::UInt256(val_string) => {
+                            let mut expr = match val_string.parse::<u256>() {
+                                Ok(val) => PreSymbolicExpression::atom_value(Value::UInt256(val)),
+                                Err(_) => {
+                                    self.add_diagnostic(
+                                        ParseErrors::FailedParsingIntValue(val_string.clone()),
+                                        token.span.clone()
                                     )?;
                                     PreSymbolicExpression::placeholder(token.token.reproduce())
                                 }

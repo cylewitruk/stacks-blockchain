@@ -849,15 +849,15 @@ fn type_reserved_variable(variable_name: &str, version: &ClarityVersion) -> Opti
             TxSender => TypeSignature::PrincipalType,
             TxSponsor => TypeSignature::new_option(TypeSignature::PrincipalType).unwrap(),
             ContractCaller => TypeSignature::PrincipalType,
-            BlockHeight => TypeSignature::UIntType,
-            BurnBlockHeight => TypeSignature::UIntType,
+            BlockHeight => TypeSignature::uint128(),
+            BurnBlockHeight => TypeSignature::uint128(),
             NativeNone => TypeSignature::new_option(no_type()).unwrap(),
             NativeTrue => TypeSignature::BoolType,
             NativeFalse => TypeSignature::BoolType,
-            TotalLiquidMicroSTX => TypeSignature::UIntType,
+            TotalLiquidMicroSTX => TypeSignature::uint128(),
             Regtest => TypeSignature::BoolType,
             Mainnet => TypeSignature::BoolType,
-            ChainId => TypeSignature::UIntType,
+            ChainId => TypeSignature::uint128(),
         };
         Some(var_type)
     } else {
@@ -1376,7 +1376,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         context: &mut TypingContext,
     ) -> CheckResult<ClarityName> {
         if let Some(bound) = bound {
-            self.type_check_expects(bound, context, &TypeSignature::UIntType)?;
+            self.type_check_expects(bound, context, &TypeSignature::uint128())?;
         }
 
         Ok(token_name.clone())
@@ -1502,7 +1502,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::UIntType.type_size()?,
+                        TypeSignature::uint128().type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }
@@ -1511,7 +1511,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     runtime_cost(
                         ClarityCostFunction::AnalysisBindName,
                         self,
-                        TypeSignature::UIntType.type_size()?,
+                        TypeSignature::uint128().type_size()?,
                     )?;
                     self.contract_context.add_ft(token_name)?;
                 }

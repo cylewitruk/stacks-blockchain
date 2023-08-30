@@ -324,7 +324,7 @@ impl<'a> Lexer<'a> {
                 Some(LexerError::InvalidCharUint(self.next)),
             )?));
         }
-        Ok(Token::Uint(num))
+        Ok(Token::UInt128(num))
     }
 
     fn read_integer(&mut self, prefix: Option<char>) -> LexResult<Token> {
@@ -343,7 +343,7 @@ impl<'a> Lexer<'a> {
                 Some(LexerError::InvalidCharInt(self.next)),
             )?));
         }
-        Ok(Token::Int(num))
+        Ok(Token::Int128(num))
     }
 
     fn read_hex(&mut self) -> LexResult<Token> {
@@ -806,7 +806,7 @@ impl<'a> Lexer<'a> {
                 } else if self.next.is_ascii_digit() {
                     self.read_integer(Some('0'))?
                 } else if is_separator(self.next) {
-                    Token::Int("0".to_string())
+                    Token::Int128("0".to_string())
                 } else {
                     Token::Placeholder(self.proceed_through_error(
                         "0".to_string(),
@@ -936,21 +936,21 @@ mod tests {
         lexer = Lexer::new("123", false).unwrap();
         assert_eq!(
             lexer.read_token().unwrap().token,
-            Token::Int("123".to_string())
+            Token::Int128("123".to_string())
         );
         assert_eq!(lexer.diagnostics.len(), 0);
 
         lexer = Lexer::new("0123", false).unwrap();
         assert_eq!(
             lexer.read_token().unwrap().token,
-            Token::Int("0123".to_string())
+            Token::Int128("0123".to_string())
         );
         assert_eq!(lexer.diagnostics.len(), 0);
 
         lexer = Lexer::new("0", false).unwrap();
         assert_eq!(
             lexer.read_token().unwrap().token,
-            Token::Int("0".to_string())
+            Token::Int128("0".to_string())
         );
         assert_eq!(lexer.diagnostics.len(), 0);
 
@@ -1005,7 +1005,7 @@ mod tests {
         lexer = Lexer::new("u123", false).unwrap();
         assert_eq!(
             lexer.read_token().unwrap().token,
-            Token::Uint("123".to_string())
+            Token::UInt128("123".to_string())
         );
 
         lexer = Lexer::new("u1a", false).unwrap();
@@ -1414,7 +1414,7 @@ mod tests {
         assert_eq!(lexer.read_token().unwrap().token, Token::Plus);
         assert_eq!(
             lexer.read_token().unwrap().token,
-            Token::Int("321".to_string())
+            Token::Int128("321".to_string())
         );
         assert_eq!(lexer.read_token().unwrap().token, Token::Eof);
         assert_eq!(lexer.read_token().unwrap().token, Token::Eof);
@@ -1509,7 +1509,7 @@ mod tests {
         );
 
         token = lexer.read_token().unwrap();
-        assert_eq!(token.token, Token::Int("1234".to_string()));
+        assert_eq!(token.token, Token::Int128("1234".to_string()));
         assert_eq!(
             token.span,
             Span {

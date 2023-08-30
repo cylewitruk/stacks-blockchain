@@ -199,23 +199,30 @@ impl FunctionType {
                 let (first, rest) = args
                     .split_first()
                     .ok_or(CheckErrors::RequiresAtLeastArguments(1, args.len()))?;
-                analysis_typecheck_cost(accounting, &TypeSignature::IntType, first)?;
+
+                if let TypeSignature::IntegerType(_) = first {
+                    analysis_typecheck_cost(accounting, first, first);     
+                } else {
+                    analysis_typecheck_cost(accounting, &TypeSignature::int128(), first)?;
+                }
+
                 // TODO: RETURN TYPE SHOULD BE THE LARGEST INPUT TYPE, AND SIGNED IF ANY INPUTS ARE SIGNED
                 let return_type = match first {
-                    TypeSignature::IntType => Ok(TypeSignature::IntType),
-                    TypeSignature::UIntType => Ok(TypeSignature::UIntType),
+                    TypeSignature::IntegerType(_) => Ok(first),
                     _ => Err(CheckErrors::UnionTypeError(
-                        vec![TypeSignature::IntType, TypeSignature::UIntType],
+                        TypeSignature::all_integer_types(),
                         first.clone(),
                     )),
                 }?;
+
                 for found_type in rest.iter() {
-                    analysis_typecheck_cost(accounting, &TypeSignature::IntType, found_type)?;
-                    if found_type != &return_type {
-                        return Err(CheckErrors::TypeError(return_type, found_type.clone()).into());
+                    analysis_typecheck_cost(accounting, first, found_type)?;
+                    if found_type != return_type {
+                        return Err(CheckErrors::TypeError(return_type.clone(), found_type.clone()).into());
                     }
                 }
-                Ok(return_type)
+
+                Ok(return_type.clone())
             }
             FunctionType::ArithmeticComparison => {
                 check_argument_count(2, args)?;
